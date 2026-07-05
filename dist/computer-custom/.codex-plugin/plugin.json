@@ -1,0 +1,43 @@
+{
+  "name": "computer-custom",
+  "version": "0.1.0",
+  "description": "Policy-controlled Windows Computer Use wrapper for technical Codex users.",
+  "author": {
+    "name": "0langa",
+    "email": "plugins@0langa.dev",
+    "url": "https://github.com/0langa"
+  },
+  "homepage": "https://github.com/0langa/computer-custom",
+  "repository": "https://github.com/0langa/computer-custom",
+  "license": "MIT",
+  "keywords": [
+    "computer-use",
+    "windows",
+    "automation",
+    "policy",
+    "codex"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Computer Custom",
+    "shortDescription": "Policy-controlled Windows app automation.",
+    "longDescription": "Computer Custom wraps the locally installed OpenAI Computer Use runtime with configurable policy gates, exact-phrase confirmations, and redacted audit entries.",
+    "developerName": "0langa",
+    "category": "Developer Tools",
+    "capabilities": [
+      "Interactive",
+      "Read",
+      "Write"
+    ],
+    "websiteURL": "https://github.com/0langa/computer-custom",
+    "privacyPolicyURL": "https://github.com/0langa/computer-custom#privacy",
+    "termsOfServiceURL": "https://github.com/0langa/computer-custom#terms",
+    "defaultPrompt": [
+      "Inspect an app window safely",
+      "Automate a Windows workflow with policy gates",
+      "List targetable Windows apps"
+    ],
+    "brandColor": "#0F766E",
+    "screenshots": []
+  }
+}

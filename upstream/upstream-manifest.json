@@ -1,0 +1,28 @@
+﻿{
+    "package":  "openai-bundled/computer-use",
+    "version":  "26.623.101652",
+    "source":  "local Codex plugin cache",
+    "syncedAtUtc":  "2026-07-05T04:04:37.5932048Z",
+    "files":  [
+                  {
+                      "relativePath":  ".codex-plugin/plugin.json",
+                      "sha256":  "51c30213aa153eb4647591a6bafc3f145303d1126186506e156e384d28a4359a",
+                      "length":  1723
+                  },
+                  {
+                      "relativePath":  "assets/app-icon.png",
+                      "sha256":  "2aadb5dbf99405ee536a6bdc40808ba476fd15d718c269d7be1e949f2e8ce53e",
+                      "length":  923463
+                  },
+                  {
+                      "relativePath":  "scripts/computer-use-client.mjs",
+                      "sha256":  "566be6ef352eb3de899adc56a9cd7b5e46c8f65b00e56b5630dd7a580e10cbea",
+                      "length":  9321
+                  },
+                  {
+                      "relativePath":  "skills/computer-use/SKILL.md",
+                      "sha256":  "c375b860be0abdbbe5cf8e2ff0d4baa9a4691d6edaab1a0e50bce1f5c0a4cf1d",
+                      "length":  40037
+                  }
+              ]
+}

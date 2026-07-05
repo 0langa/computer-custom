@@ -1,0 +1,22 @@
+{
+  "name": "computer-custom",
+  "version": "0.1.0",
+  "description": "Policy-controlled Windows Computer Use wrapper for technical Codex users.",
+  "type": "module",
+  "private": false,
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/0langa/computer-custom.git"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json && node scripts/build-dist.mjs",
+    "test": "npm run build && node --test tests/*.test.mjs",
+    "sync:upstream": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/sync-upstream.ps1",
+    "scan:public": "node scripts/check-public-safety.mjs"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "typescript": "^5.8.0"
+  }
+}

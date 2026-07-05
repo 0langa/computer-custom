@@ -1,0 +1,55 @@
+{
+  "protectedRoots": [
+    "%WINDIR%",
+    "%SYSTEMROOT%",
+    "%PROGRAMFILES%",
+    "%PROGRAMFILES(X86)%"
+  ],
+  "hardBlock": {
+    "appPatterns": [
+      "\\b(cmd|powershell|pwsh|wt|regedit|secpol|gpedit|taskmgr)\\.exe\\b",
+      "\\bWindows Security\\b",
+      "\\bMicrosoft Defender\\b"
+    ],
+    "textPatterns": [
+      "\\b(password|credential|secret|api[_ -]?key|token)\\b.*\\b(copy|send|share|upload|post|paste)\\b",
+      "\\b(disable|bypass|evade)\\b.*\\b(security|defender|antivirus|firewall|uac)\\b",
+      "\\b(format)\\b.*\\b(drive|disk|volume)\\b"
+    ]
+  },
+  "confirm": {
+    "riskyMethods": [
+      "click",
+      "perform_secondary_action",
+      "press_key",
+      "set_value",
+      "type_text"
+    ],
+    "appPatterns": [
+      "\\binstaller\\b",
+      "\\bsetup\\b",
+      "\\buninstall\\b"
+    ],
+    "textPatterns": [
+      "\\b(delete|remove|erase|destroy|overwrite|uninstall)\\b",
+      "\\b(submit|send|post|publish|share|upload)\\b",
+      "\\b(cancel|unsubscribe|purchase|pay|transfer)\\b"
+    ],
+    "phrase": "I UNDERSTAND"
+  },
+  "audit": {
+    "maxEntries": 200,
+    "redactKeyPatterns": [
+      "TOKEN",
+      "KEY",
+      "SECRET",
+      "PASSWORD",
+      "CREDENTIAL"
+    ],
+    "redactValuePatterns": [
+      "sk-[A-Za-z0-9_-]{12,}",
+      "gh[pousr]_[A-Za-z0-9_]{20,}",
+      "[A-Za-z0-9._%+-]+:[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+"
+    ]
+  }
+}

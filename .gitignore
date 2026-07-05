@@ -1,0 +1,15 @@
+node_modules/
+build/
+.cache/
+.pytest_cache/
+.ruff_cache/
+npm-debug.log*
+
+# Local upstream snapshots are proprietary OpenAI plugin files. Keep only hashes.
+upstream/openai-bundled/**
+!upstream/
+!upstream/upstream-manifest.json
+
+# Local generated/transient files.
+*.tsbuildinfo
+*.log
