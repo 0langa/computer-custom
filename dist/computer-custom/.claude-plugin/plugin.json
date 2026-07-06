@@ -1,0 +1,21 @@
+{
+  "name": "computer-custom",
+  "version": "0.1.0",
+  "description": "Policy-controlled guard for Claude Code's Computer Use tools.",
+  "author": {
+    "name": "0langa",
+    "email": "plugins@0langa.dev",
+    "url": "https://github.com/0langa"
+  },
+  "homepage": "https://github.com/0langa/computer-custom",
+  "repository": "https://github.com/0langa/computer-custom",
+  "license": "MIT",
+  "keywords": [
+    "computer-use",
+    "windows",
+    "automation",
+    "policy",
+    "claude-code"
+  ],
+  "skills": "./skills/"
+}

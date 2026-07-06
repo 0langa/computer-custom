@@ -7,8 +7,10 @@ const distRoot = path.join(repoRoot, "dist", "computer-custom");
 
 fs.rmSync(distRoot, { force: true, recursive: true });
 fs.mkdirSync(path.join(distRoot, ".codex-plugin"), { recursive: true });
+fs.mkdirSync(path.join(distRoot, ".claude-plugin"), { recursive: true });
 fs.mkdirSync(path.join(distRoot, "config"), { recursive: true });
 fs.mkdirSync(path.join(distRoot, "scripts"), { recursive: true });
+fs.mkdirSync(path.join(distRoot, "hooks"), { recursive: true });
 fs.mkdirSync(path.join(distRoot, "skills", "computer-custom"), {
   recursive: true,
 });
@@ -28,6 +30,14 @@ copyFile(
 copyFile(
   path.join(repoRoot, "build", "policy.mjs"),
   path.join(distRoot, "scripts", "policy.mjs"),
+);
+copyFile(
+  path.join(repoRoot, "overlay", "scripts", "computer-use-guard.mjs"),
+  path.join(distRoot, "scripts", "computer-use-guard.mjs"),
+);
+copyFile(
+  path.join(repoRoot, "overlay", "claude", "hooks", "hooks.json"),
+  path.join(distRoot, "hooks", "hooks.json"),
 );
 
 writeJson(path.join(distRoot, ".codex-plugin", "plugin.json"), {
@@ -64,6 +74,23 @@ writeJson(path.join(distRoot, ".codex-plugin", "plugin.json"), {
     brandColor: "#0F766E",
     screenshots: [],
   },
+});
+
+writeJson(path.join(distRoot, ".claude-plugin", "plugin.json"), {
+  name: "computer-custom",
+  version: "0.1.0",
+  description:
+    "Policy-controlled guard for Claude Code's Computer Use tools.",
+  author: {
+    name: "0langa",
+    email: "plugins@0langa.dev",
+    url: "https://github.com/0langa",
+  },
+  homepage: "https://github.com/0langa/computer-custom",
+  repository: "https://github.com/0langa/computer-custom",
+  license: "MIT",
+  keywords: ["computer-use", "windows", "automation", "policy", "claude-code"],
+  skills: "./skills/",
 });
 
 function copyFile(from, to) {
