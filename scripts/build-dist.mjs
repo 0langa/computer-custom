@@ -36,8 +36,8 @@ copyFile(
   path.join(distRoot, "scripts", "computer-use-guard.mjs"),
 );
 copyFile(
-  path.join(repoRoot, "overlay", "claude", "hooks", "hooks.json"),
-  path.join(distRoot, "hooks", "hooks.json"),
+  path.join(repoRoot, "overlay", "claude", "hooks", "claude-hooks.json"),
+  path.join(distRoot, "hooks", "claude-hooks.json"),
 );
 
 writeJson(path.join(distRoot, ".codex-plugin", "plugin.json"), {
@@ -91,6 +91,7 @@ writeJson(path.join(distRoot, ".claude-plugin", "plugin.json"), {
   license: "MIT",
   keywords: ["computer-use", "windows", "automation", "policy", "claude-code"],
   skills: "./skills/",
+  hooks: "./hooks/claude-hooks.json",
 });
 
 function copyFile(from, to) {

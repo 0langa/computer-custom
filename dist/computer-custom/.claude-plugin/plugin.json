@@ -17,5 +17,6 @@
     "policy",
     "claude-code"
   ],
-  "skills": "./skills/"
+  "skills": "./skills/",
+  "hooks": "./hooks/claude-hooks.json"
 }

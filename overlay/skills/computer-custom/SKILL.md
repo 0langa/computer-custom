@@ -39,7 +39,7 @@ nodeRepl.write(JSON.stringify(apps, null, 2));
 
 ### Claude Code
 
-No setup step. A `PreToolUse` hook (`hooks/hooks.json` → `scripts/computer-use-guard.mjs`) intercepts every `mcp__computer-use__*` tool call automatically and reuses the same `scripts/policy.mjs` classifier Codex uses.
+No setup step. A `PreToolUse` hook (`hooks/claude-hooks.json` → `scripts/computer-use-guard.mjs`) intercepts every `mcp__computer-use__*` tool call automatically and reuses the same `scripts/policy.mjs` classifier Codex uses.
 
 - Blocked actions are denied outright; the matched rule is shown to Claude as the deny reason.
 - Risky actions surface as a normal Claude Code permission prompt (`ask`) instead of a typed confirmation phrase.
