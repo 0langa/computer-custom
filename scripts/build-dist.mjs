@@ -4,6 +4,9 @@ import { fileURLToPath } from "node:url";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const distRoot = path.join(repoRoot, "dist", "computer-custom");
+const packageMetadata = JSON.parse(
+  fs.readFileSync(path.join(repoRoot, "package.json"), "utf8"),
+);
 
 fs.rmSync(distRoot, { force: true, recursive: true });
 fs.mkdirSync(path.join(distRoot, ".codex-plugin"), { recursive: true });
@@ -11,6 +14,7 @@ fs.mkdirSync(path.join(distRoot, ".claude-plugin"), { recursive: true });
 fs.mkdirSync(path.join(distRoot, "config"), { recursive: true });
 fs.mkdirSync(path.join(distRoot, "scripts"), { recursive: true });
 fs.mkdirSync(path.join(distRoot, "hooks"), { recursive: true });
+fs.mkdirSync(path.join(distRoot, "assets"), { recursive: true });
 fs.mkdirSync(path.join(distRoot, "skills", "computer-custom"), {
   recursive: true,
 });
@@ -39,10 +43,16 @@ copyFile(
   path.join(repoRoot, "overlay", "claude", "hooks", "claude-hooks.json"),
   path.join(distRoot, "hooks", "claude-hooks.json"),
 );
+for (const asset of ["icon.png", "logo.png", "screenshot-1.png"]) {
+  copyFile(
+    path.join(repoRoot, "overlay", "assets", asset),
+    path.join(distRoot, "assets", asset),
+  );
+}
 
 writeJson(path.join(distRoot, ".codex-plugin", "plugin.json"), {
   name: "computer-custom",
-  version: "0.1.0",
+  version: packageMetadata.version,
   description:
     "Policy-controlled Windows Computer Use wrapper for technical Codex users.",
   author: {
@@ -72,13 +82,15 @@ writeJson(path.join(distRoot, ".codex-plugin", "plugin.json"), {
       "List targetable Windows apps",
     ],
     brandColor: "#0F766E",
-    screenshots: [],
+    composerIcon: "./assets/icon.png",
+    logo: "./assets/logo.png",
+    screenshots: ["./assets/screenshot-1.png"],
   },
 });
 
 writeJson(path.join(distRoot, ".claude-plugin", "plugin.json"), {
   name: "computer-custom",
-  version: "0.1.0",
+  version: packageMetadata.version,
   description:
     "Policy-controlled guard for Claude Code's Computer Use tools.",
   author: {

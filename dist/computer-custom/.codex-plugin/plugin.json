@@ -1,6 +1,6 @@
 {
   "name": "computer-custom",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Policy-controlled Windows Computer Use wrapper for technical Codex users.",
   "author": {
     "name": "0langa",
@@ -38,6 +38,10 @@
       "List targetable Windows apps"
     ],
     "brandColor": "#0F766E",
-    "screenshots": []
+    "composerIcon": "./assets/icon.png",
+    "logo": "./assets/logo.png",
+    "screenshots": [
+      "./assets/screenshot-1.png"
+    ]
   }
 }
