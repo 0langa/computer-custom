@@ -49,6 +49,25 @@ export type AuditEntry = {
   error?: string;
 };
 
+export type PolicyEnvironment = {
+  home?: string;
+  programFiles?: string;
+  programFilesX86?: string;
+  systemRoot?: string;
+  winDir?: string;
+};
+
+const READ_ONLY_METHODS = new Set([
+  "documentation",
+  "get_window",
+  "get_window_state",
+  "list_apps",
+  "list_windows",
+  "screenshot",
+]);
+
+const PROTECTED_ROOT_INPUT_METHODS = new Set(["set_value", "type_text"]);
+
 export function loadPolicy(policyPath: string): PolicyConfig {
   const raw = fs.readFileSync(policyPath, "utf8");
   return JSON.parse(raw) as PolicyConfig;
@@ -58,14 +77,25 @@ export function classifySkyCall(
   method: string,
   args: unknown[],
   policy: PolicyConfig,
+  environment: PolicyEnvironment = readPolicyEnvironment(),
 ): PolicyDecision {
+  if (READ_ONLY_METHODS.has(method)) {
+    return {
+      action: "allow",
+      reason: "Read-only method",
+    };
+  }
+
   const expandedRoots = policy.protectedRoots
-    .map(expandEnvironmentRoot)
+    .map((root) => expandEnvironmentRoot(root, environment))
     .filter((value) => value.length > 0);
   const normalizedPayload = normalizeForMatching({ method, args });
+  const protectedRootPayload = PROTECTED_ROOT_INPUT_METHODS.has(method)
+    ? normalizedPayload
+    : "";
 
   const protectedRootMatches = expandedRoots.filter((root) =>
-    normalizedPayload.includes(root.toLowerCase()),
+    protectedRootPayload.includes(root.toLowerCase()),
   );
   if (protectedRootMatches.length > 0) {
     return {
@@ -129,19 +159,54 @@ export function appendAuditEntry(
   globals.computerCustomAudit = existing;
 }
 
-function expandEnvironmentRoot(value: string): string {
+export function expandEnvironmentRoot(
+  value: string,
+  environment: PolicyEnvironment = readPolicyEnvironment(),
+): string {
   const env = {
-    "%HOME%": os.homedir(),
-    "%PROGRAMFILES%": process.env.ProgramFiles ?? "",
-    "%PROGRAMFILES(X86)%": process.env["ProgramFiles(x86)"] ?? "",
-    "%SYSTEMROOT%": process.env.SystemRoot ?? "",
-    "%WINDIR%": process.env.WINDIR ?? "",
+    "%HOME%": environment.home ?? "",
+    "%PROGRAMFILES%": environment.programFiles ?? "",
+    "%PROGRAMFILES(X86)%": environment.programFilesX86 ?? "",
+    "%SYSTEMROOT%": environment.systemRoot ?? "",
+    "%WINDIR%": environment.winDir ?? "",
   };
   let expanded = value;
   for (const [token, replacement] of Object.entries(env)) {
+    if (expanded.includes(token) && replacement.length === 0) {
+      return "";
+    }
     expanded = expanded.replaceAll(token, replacement);
   }
+  if (/%[^%]+%/.test(expanded) || expanded.trim().length === 0) {
+    return "";
+  }
   return normalizePathText(expanded);
+}
+
+function readPolicyEnvironment(): PolicyEnvironment {
+  const driveRoot = path.parse(os.homedir()).root || "C:\\";
+  const defaultWindowsRoot = path.join(driveRoot, "Windows");
+  return {
+    home: os.homedir(),
+    programFiles:
+      readEnvironmentValue("ProgramFiles") ?? path.join(driveRoot, "Program Files"),
+    programFilesX86:
+      readEnvironmentValue("ProgramFiles(x86)") ?? path.join(driveRoot, "Program Files (x86)"),
+    systemRoot: readEnvironmentValue("SystemRoot") ?? defaultWindowsRoot,
+    winDir: readEnvironmentValue("WINDIR") ?? defaultWindowsRoot,
+  };
+}
+
+function readEnvironmentValue(name: string): string | undefined {
+  const processEnv = (globalThis as any).process?.env;
+  const processValue = processEnv?.[name];
+  if (typeof processValue === "string") {
+    return processValue;
+  }
+
+  const nodeReplEnv = (globalThis as any).nodeRepl?.env;
+  const nodeReplValue = nodeReplEnv?.[name];
+  return typeof nodeReplValue === "string" ? nodeReplValue : undefined;
 }
 
 function normalizePathText(value: string): string {

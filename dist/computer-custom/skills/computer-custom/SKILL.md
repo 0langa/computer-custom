@@ -12,6 +12,7 @@ Adds a policy layer on top of Computer Use: hard-blocked system paths and action
 - Read-only discovery calls normally pass through.
 - Configured protected paths and secret-exfiltration patterns are hard-blocked.
 - Configured risky actions require confirmation.
+- Security and antivirus windows may be inspected read-only; input requires exact-phrase confirmation by default.
 - Set `COMPUTER_CUSTOM_POLICY` to override the default policy config (both providers).
 - Audit entries redact common secret keys and token-like values.
 
@@ -35,7 +36,8 @@ nodeRepl.write(JSON.stringify(apps, null, 2));
 - Set `COMPUTER_CUSTOM_OFFICIAL_CLIENT` to an explicit `computer-use-client.mjs` path only for local debugging.
 - Risky actions require action-time exact phrase confirmation (`I UNDERSTAND`).
 - Audit entries live in `globalThis.computerCustomAudit`.
-- If confirmation UI is unavailable, stop and report that Computer Custom could not confirm the risky action.
+- When confirmation UI is unavailable, first attempt records a pending action and stops before input. Ask user for exact phrase `I UNDERSTAND`; only after user provides it, call `computerCustomAuthorizePending("I UNDERSTAND")` and retry unchanged action. Authorization is one-shot and expires after 60 seconds.
+- Never synthesize confirmation phrase or authorize action without user providing it at action time.
 
 ### Claude Code
 

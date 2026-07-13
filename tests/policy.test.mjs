@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   classifySkyCall,
+  expandEnvironmentRoot,
   redactForAudit,
 } from "../build/policy.mjs";
 import policy from "../overlay/config/default-policy.json" with { type: "json" };
@@ -12,6 +13,13 @@ describe("policy classifier", () => {
       "type_text",
       [{ text: "delete C:\\Windows\\System32" }],
       policy,
+      {
+        home: "C:\\Users\\Tester",
+        programFiles: "C:\\Program Files",
+        programFilesX86: "C:\\Program Files (x86)",
+        systemRoot: "C:\\Windows",
+        winDir: "C:\\Windows",
+      },
     );
 
     assert.equal(decision.action, "block");
@@ -32,6 +40,41 @@ describe("policy classifier", () => {
     const decision = classifySkyCall("list_apps", [], policy);
 
     assert.equal(decision.action, "allow");
+  });
+
+  it("allows read-only inspection of protected and security windows", () => {
+    const decision = classifySkyCall(
+      "get_window_state",
+      [{ window: { app: "Microsoft Defender", id: 42 } }],
+      policy,
+      {},
+    );
+
+    assert.equal(decision.action, "allow");
+  });
+
+  it("does not treat missing environment roots as the current directory", () => {
+    assert.equal(expandEnvironmentRoot("%WINDIR%", {}), "");
+
+    const decision = classifySkyCall(
+      "launch_app",
+      [{ app: "Microsoft.WindowsNotepad_8wekyb3d8bbwe!App" }],
+      policy,
+      {},
+    );
+    assert.equal(decision.action, "allow");
+  });
+
+  it("requires confirmation for security app input", () => {
+    const decision = classifySkyCall(
+      "click",
+      [{ window: { app: "Avira.Spotlight.UI.Application.Messaging.exe", id: 7 }, x: 10, y: 10 }],
+      policy,
+      {},
+    );
+
+    assert.equal(decision.action, "confirm");
+    assert.equal(decision.phrase, "I UNDERSTAND");
   });
 });
 

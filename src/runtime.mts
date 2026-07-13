@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -18,11 +19,31 @@ export type SetupComputerCustomRuntimeOptions = {
   policyPath?: string;
 };
 
+type PendingConfirmation = {
+  expiresAt: number;
+  fingerprint: string;
+  method: string;
+  phrase: string;
+  reason: string;
+};
+
+const PENDING_CONFIRMATION_TTL_MS = 5 * 60 * 1000;
+const AUTHORIZED_CONFIRMATION_TTL_MS = 60 * 1000;
+
 export async function setupComputerCustomRuntime({
   globals = globalThis as Record<string, any>,
   officialClientPath,
   policyPath,
 }: SetupComputerCustomRuntimeOptions = {}): Promise<unknown> {
+  const existingRuntime = globals.computerCustomRuntime;
+  if (
+    existingRuntime?.wrapped === true &&
+    existingRuntime.sky != null &&
+    globals.sky === existingRuntime.sky
+  ) {
+    return globals.sky;
+  }
+
   const resolvedOfficialClientPath =
     officialClientPath ?? resolveOfficialComputerUseClientPath();
   const officialModule = await import(pathToFileURL(resolvedOfficialClientPath).href);
@@ -44,17 +65,59 @@ export async function setupComputerCustomRuntime({
   globals.computerCustomAudit = Array.isArray(globals.computerCustomAudit)
     ? globals.computerCustomAudit
     : [];
-  globals.sky = createPolicySkyProxy(globals.sky, { globals, policy });
-  return globals.sky;
+  globals.computerCustomAuthorizePending = (phrase: string) =>
+    authorizePendingComputerCustomAction(globals, phrase);
+  const wrappedSky = createPolicySkyProxy(globals.sky, { globals, policy });
+  globals.sky = wrappedSky;
+  globals.computerCustomRuntime = {
+    officialClientPath: resolvedOfficialClientPath,
+    policyPath: policyPath ?? resolveDefaultPolicyPath(),
+    sky: wrappedSky,
+    wrapped: true,
+  };
+  return wrappedSky;
+}
+
+export function authorizePendingComputerCustomAction(
+  globals: Record<string, any>,
+  phrase: string,
+): { expiresAt: number; method: string; reason: string } {
+  const pending = globals.computerCustomPendingConfirmation as
+    | PendingConfirmation
+    | undefined;
+  if (pending == null) {
+    throw new Error("Computer Custom has no pending action to authorize");
+  }
+  if (pending.expiresAt <= Date.now()) {
+    delete globals.computerCustomPendingConfirmation;
+    throw new Error("Computer Custom pending confirmation expired");
+  }
+  if (phrase !== pending.phrase) {
+    throw new Error("Computer Custom confirmation phrase did not match");
+  }
+
+  const expiresAt = Date.now() + AUTHORIZED_CONFIRMATION_TTL_MS;
+  globals.computerCustomAuthorizedConfirmation = {
+    expiresAt,
+    fingerprint: pending.fingerprint,
+  };
+  delete globals.computerCustomPendingConfirmation;
+  return {
+    expiresAt,
+    method: pending.method,
+    reason: pending.reason,
+  };
 }
 
 export function resolveOfficialComputerUseClientPath(): string {
-  const explicitClient = process.env.COMPUTER_CUSTOM_OFFICIAL_CLIENT?.trim();
+  const explicitClient = readEnvironmentValue(
+    "COMPUTER_CUSTOM_OFFICIAL_CLIENT",
+  )?.trim();
   if (explicitClient) {
     return assertComputerUseClient(explicitClient);
   }
 
-  const explicitRoot = process.env.COMPUTER_USE_PLUGIN_ROOT?.trim();
+  const explicitRoot = readEnvironmentValue("COMPUTER_USE_PLUGIN_ROOT")?.trim();
   if (explicitRoot) {
     return assertComputerUseClient(
       path.join(explicitRoot, "scripts", "computer-use-client.mjs"),
@@ -91,7 +154,7 @@ export function resolveOfficialComputerUseClientPath(): string {
 }
 
 export function resolveDefaultPolicyPath(): string {
-  const fromEnvironment = process.env.COMPUTER_CUSTOM_POLICY?.trim();
+  const fromEnvironment = readEnvironmentValue("COMPUTER_CUSTOM_POLICY")?.trim();
   if (fromEnvironment) {
     return fromEnvironment;
   }
@@ -101,6 +164,18 @@ export function resolveDefaultPolicyPath(): string {
     "config",
     "default-policy.json",
   );
+}
+
+function readEnvironmentValue(name: string): string | undefined {
+  const processEnv = (globalThis as any).process?.env;
+  const processValue = processEnv?.[name];
+  if (typeof processValue === "string") {
+    return processValue;
+  }
+
+  const nodeReplEnv = (globalThis as any).nodeRepl?.env;
+  const nodeReplValue = nodeReplEnv?.[name];
+  return typeof nodeReplValue === "string" ? nodeReplValue : undefined;
 }
 
 function createPolicySkyProxy(
@@ -116,8 +191,6 @@ function createPolicySkyProxy(
 
       return async (...args: unknown[]) => {
         const decision = classifySkyCall(property, args, context.policy);
-        await enforceDecision(context.globals, property, args, decision);
-
         const auditEntry: AuditEntry = {
           at: new Date().toISOString(),
           args: redactForAudit(args, context.policy),
@@ -127,23 +200,20 @@ function createPolicySkyProxy(
         };
 
         try {
+          await enforceDecision(context.globals, property, args, decision);
           const result = await Reflect.apply(value, target, args);
           auditEntry.ok = true;
-          appendAuditEntry(
-            context.globals,
-            auditEntry,
-            context.policy.audit.maxEntries,
-          );
           return result;
         } catch (error) {
           auditEntry.ok = false;
           auditEntry.error = error instanceof Error ? error.message : String(error);
+          throw error;
+        } finally {
           appendAuditEntry(
             context.globals,
             auditEntry,
             context.policy.audit.maxEntries,
           );
-          throw error;
         }
       };
     },
@@ -185,10 +255,28 @@ async function requestExactPhraseConfirmation(
     method: string;
   },
 ): Promise<boolean> {
+  const fingerprint = confirmationFingerprint(input.method, input.args);
+  const authorized = globals.computerCustomAuthorizedConfirmation;
+  if (
+    authorized?.fingerprint === fingerprint &&
+    typeof authorized.expiresAt === "number" &&
+    authorized.expiresAt > Date.now()
+  ) {
+    delete globals.computerCustomAuthorizedConfirmation;
+    return true;
+  }
+
   const createElicitation = globals.nodeRepl?.createElicitation;
   if (typeof createElicitation !== "function") {
+    globals.computerCustomPendingConfirmation = {
+      expiresAt: Date.now() + PENDING_CONFIRMATION_TTL_MS,
+      fingerprint,
+      method: input.method,
+      phrase: input.decision.phrase,
+      reason: input.decision.reason,
+    } satisfies PendingConfirmation;
     throw new Error(
-      "Computer Custom confirmation UI is unavailable outside trusted node_repl",
+      "Computer Custom needs chat confirmation. Ask the user for the exact phrase, then call computerCustomAuthorizePending(phrase) and retry the unchanged action.",
     );
   }
 
@@ -210,6 +298,30 @@ async function requestExactPhraseConfirmation(
   });
 
   return extractStrings(response).some((value) => value === input.decision.phrase);
+}
+
+function confirmationFingerprint(method: string, args: unknown[]): string {
+  const serialized = JSON.stringify({ method, args }, createCircularSafeReplacer());
+  return createHash("sha256").update(serialized).digest("hex");
+}
+
+function createCircularSafeReplacer(): (key: string, value: unknown) => unknown {
+  const seen = new WeakSet<object>();
+  return (_key, value) => {
+    if (typeof value === "bigint") {
+      return value.toString();
+    }
+    if (typeof value === "function") {
+      return `[Function:${value.name || "anonymous"}]`;
+    }
+    if (value != null && typeof value === "object") {
+      if (seen.has(value)) {
+        return "[Circular]";
+      }
+      seen.add(value);
+    }
+    return value;
+  };
 }
 
 function extractStrings(value: unknown): string[] {

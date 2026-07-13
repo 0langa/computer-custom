@@ -7,9 +7,7 @@
   ],
   "hardBlock": {
     "appPatterns": [
-      "\\b(cmd|powershell|pwsh|wt|regedit|secpol|gpedit|taskmgr)\\.exe\\b",
-      "\\bWindows Security\\b",
-      "\\bMicrosoft Defender\\b"
+      "\\b(cmd|powershell|pwsh|wt|regedit|secpol|gpedit|taskmgr)\\.exe\\b"
     ],
     "textPatterns": [
       "\\b(password|credential|secret|api[_ -]?key|token)\\b.*\\b(copy|send|share|upload|post|paste)\\b",
@@ -28,7 +26,8 @@
     "appPatterns": [
       "\\binstaller\\b",
       "\\bsetup\\b",
-      "\\buninstall\\b"
+      "\\buninstall\\b",
+      "\\b(Windows Security|Microsoft Defender|Avira|antivirus|anti-malware|firewall)\\b"
     ],
     "textPatterns": [
       "\\b(delete|remove|erase|destroy|overwrite|uninstall)\\b",
