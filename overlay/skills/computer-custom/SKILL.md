@@ -1,6 +1,6 @@
 ---
 name: computer-custom
-description: Policy-controlled Windows Computer Use wrapper for Codex and Claude Code
+description: Use this skill when live-testing or automating Windows apps in Codex or Claude Code through a policy-controlled Computer Use wrapper.
 ---
 
 # Computer Custom

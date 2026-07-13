@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.3 - 2026-07-13
+
+- Improved skill discovery for live Codex and Claude Code Windows testing requests.
+
 ## 0.1.2 - 2026-07-13
 
 - Fixed Codex bootstrap when `process` is unavailable inside current JavaScript runtime.

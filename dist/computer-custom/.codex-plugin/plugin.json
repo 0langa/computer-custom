@@ -1,6 +1,6 @@
 {
   "name": "computer-custom",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Policy-controlled Windows Computer Use wrapper for technical Codex users.",
   "author": {
     "name": "0langa",
