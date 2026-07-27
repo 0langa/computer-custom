@@ -9,10 +9,14 @@ import policy from "../overlay/config/default-policy.json" with { type: "json" }
 
 describe("policy classifier", () => {
   it("blocks protected Windows roots", () => {
+    const protectedPolicy = {
+      ...policy,
+      protectedRoots: ["%WINDIR%"],
+    };
     const decision = classifySkyCall(
       "type_text",
       [{ text: "delete C:\\Windows\\System32" }],
-      policy,
+      protectedPolicy,
       {
         home: "C:\\Users\\Tester",
         programFiles: "C:\\Program Files",
@@ -75,6 +79,39 @@ describe("policy classifier", () => {
 
     assert.equal(decision.action, "confirm");
     assert.equal(decision.phrase, "I UNDERSTAND");
+  });
+
+  it("requires confirmation instead of blocking explicit security changes", () => {
+    const decision = classifySkyCall(
+      "type_text",
+      [{ text: "disable antivirus protection" }],
+      policy,
+      {},
+    );
+
+    assert.equal(decision.action, "confirm");
+  });
+
+  it("requires confirmation for administrative tools", () => {
+    const decision = classifySkyCall(
+      "click",
+      [{ window: { app: "C:\\Windows\\regedit.exe", id: 9 }, x: 10, y: 10 }],
+      policy,
+      {},
+    );
+
+    assert.equal(decision.action, "confirm");
+  });
+
+  it("allows ordinary Program Files path entry by default", () => {
+    const decision = classifySkyCall(
+      "type_text",
+      [{ text: "C:\\Program Files\\Example App" }],
+      policy,
+      {},
+    );
+
+    assert.equal(decision.action, "allow");
   });
 });
 

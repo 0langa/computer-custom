@@ -17,6 +17,34 @@ afterEach(() => {
 });
 
 describe("Computer Custom runtime", () => {
+  it("keeps skill bootstrap independent of preexisting sky", () => {
+    const skill = fs.readFileSync(
+      path.resolve("overlay", "skills", "computer-custom", "SKILL.md"),
+      "utf8",
+    );
+
+    assert.match(skill, /computerCustomRuntime\?\.wrapped/);
+    assert.doesNotMatch(skill, /if \(!globalThis\.sky\)/);
+    assert.match(skill, /documentation\("guidance"\)/);
+    assert.match(skill, /documentation\("confirmations"\)/);
+  });
+
+  it("wraps an already initialized official sky instead of skipping setup", async () => {
+    const fixture = createFixture();
+    const preexistingSky = { async list_apps() { return []; } };
+    const globals = { sky: preexistingSky };
+
+    await setupComputerCustomRuntime({
+      globals,
+      officialClientPath: fixture.officialClientPath,
+      policyPath: fixture.policyPath,
+    });
+
+    assert.notEqual(globals.sky, preexistingSky);
+    assert.equal(globals.computerCustomRuntime.wrapped, true);
+    assert.deepEqual(await globals.sky.list_apps(), [{ id: "safe-app", windows: [] }]);
+  });
+
   it("wraps safe calls once and records successful audit entries", async () => {
     const fixture = createFixture();
     const globals = {};

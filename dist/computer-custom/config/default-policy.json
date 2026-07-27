@@ -1,17 +1,11 @@
 {
-  "protectedRoots": [
-    "%WINDIR%",
-    "%SYSTEMROOT%",
-    "%PROGRAMFILES%",
-    "%PROGRAMFILES(X86)%"
-  ],
+  "protectedRoots": [],
   "hardBlock": {
     "appPatterns": [
-      "\\b(cmd|powershell|pwsh|wt|regedit|secpol|gpedit|taskmgr)\\.exe\\b"
+      "\\b(cmd|powershell|pwsh|wt)\\.exe\\b"
     ],
     "textPatterns": [
       "\\b(password|credential|secret|api[_ -]?key|token)\\b.*\\b(copy|send|share|upload|post|paste)\\b",
-      "\\b(disable|bypass|evade)\\b.*\\b(security|defender|antivirus|firewall|uac)\\b",
       "\\b(format)\\b.*\\b(drive|disk|volume)\\b"
     ]
   },
@@ -27,12 +21,14 @@
       "\\binstaller\\b",
       "\\bsetup\\b",
       "\\buninstall\\b",
+      "\\b(regedit|secpol|gpedit|taskmgr)\\.exe\\b",
       "\\b(Windows Security|Microsoft Defender|Avira|antivirus|anti-malware|firewall)\\b"
     ],
     "textPatterns": [
       "\\b(delete|remove|erase|destroy|overwrite|uninstall)\\b",
       "\\b(submit|send|post|publish|share|upload)\\b",
-      "\\b(cancel|unsubscribe|purchase|pay|transfer)\\b"
+      "\\b(cancel|unsubscribe|purchase|pay|transfer)\\b",
+      "\\b(disable|enable|bypass|change|configure)\\b.*\\b(security|defender|antivirus|firewall|uac)\\b"
     ],
     "phrase": "I UNDERSTAND"
   },

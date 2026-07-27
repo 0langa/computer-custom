@@ -1,6 +1,6 @@
 # Computer Custom
 
-Computer Custom wraps local Computer Use for Codex and guards Computer Use calls in Claude Code. It adds configurable policy gates while keeping official bundled runtime files out of this repository.
+Computer Custom runs official Computer Use with custom skill instructions and configurable policy gates. It keeps official bundled runtime files out of this repository.
 
 ## What Is Included
 
@@ -34,7 +34,7 @@ Restart Codex after install or update so plugin cache reloads.
 
 ## Codex Confirmation Flow
 
-Read-only inspection passes without confirmation. Destructive, publishing, installer, and security-tool input requires exact phrase `I UNDERSTAND`.
+Read-only inspection passes without confirmation. Destructive, publishing, administrative, installer, and security-tool input requires exact phrase `I UNDERSTAND`. Terminal automation and secret exfiltration remain hard-blocked by default.
 
 Current Codex runtime lacks inline elicitation. First risky call stops before input and records pending action. Ask user for exact phrase; after user supplies it, run:
 
@@ -44,7 +44,13 @@ computerCustomAuthorizePending("I UNDERSTAND")
 
 Retry unchanged action within 60 seconds. Authorization works once and cannot approve different action. Never synthesize phrase for user.
 
-Security and antivirus windows can be inspected read-only. Input requires confirmation. Requests to disable, bypass, or evade security remain hard-blocked.
+Security-setting requests now reach exact confirmation instead of being rejected by custom policy. Provider/runtime restrictions still apply after custom confirmation.
+
+## Runtime Boundary
+
+Computer Custom can change its own instructions and policy. It cannot override host policy, official runtime enforcement, Windows process integrity, or secure desktop. In particular, normal Computer Use cannot target UAC prompts shown on secure desktop; user must complete those prompts manually.
+
+If official Computer Use initialized `sky` earlier in a conversation, custom setup must still run. Check `globalThis.computerCustomRuntime?.wrapped`, not only `globalThis.sky`. Skill bootstrap handles this and requires reading live official `guidance` and `confirmations` documents before control.
 
 ## Privacy
 
