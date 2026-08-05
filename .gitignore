@@ -3,6 +3,7 @@ build/
 .cache/
 .pytest_cache/
 .ruff_cache/
+.recall/
 npm-debug.log*
 
 # Local upstream snapshots are proprietary OpenAI plugin files. Keep only hashes.
