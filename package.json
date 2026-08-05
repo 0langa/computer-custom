@@ -1,6 +1,6 @@
 {
   "name": "computer-custom",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Policy-controlled Windows Computer Use wrapper for Codex and Claude Code.",
   "type": "module",
   "private": false,

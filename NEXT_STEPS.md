@@ -4,8 +4,8 @@ _Last verified: 2026-08-05_
 
 ## Current source state
 
-- The latest released source tag is `v0.1.4` (`3f984b7`). Check local and
-  remote branch heads live before release work.
+- The latest released source tag is `v0.1.5`. Check local and remote branch
+  heads live before release work.
 - `package.json` is the version source of truth. `npm run build` compiles `src/*.mts`
   into ignored `build/` files and regenerates the tracked plugin at
   `dist/computer-custom`.

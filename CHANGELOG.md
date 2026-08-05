@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.5 - 2026-08-05
+
+- Added Windows source-validation CI and stabilized generated public-plugin text files.
+- Ignored local RECALL state; no provider runtime behavior changed.
+
 ## 0.1.4 - 2026-07-27
 
 - Fixed skill bootstrap skipping custom wrapper when official Computer Use initialized `sky` first.
