@@ -1,0 +1,3 @@
+# The Node build writes these tracked generated text files with LF line endings.
+dist/computer-custom/**/*.json text eol=lf
+dist/computer-custom/**/*.mjs text eol=lf
