@@ -50,7 +50,7 @@ Security-setting requests now reach exact confirmation instead of being rejected
 
 Computer Custom can change its own instructions and policy. It cannot override host policy, official runtime enforcement, Windows process integrity, or secure desktop. In particular, normal Computer Use cannot target UAC prompts shown on secure desktop; user must complete those prompts manually.
 
-If official Computer Use initialized `sky` earlier in a conversation, custom setup must still run. Check `globalThis.computerCustomRuntime?.wrapped`, not only `globalThis.sky`. Skill bootstrap handles this and requires reading live official `guidance` and `confirmations` documents before control.
+The skill imports `sky` from the host's `@oai/sky` package and passes it to `setupComputerCustomRuntime` as `officialSky`. Setup also wraps an existing `globals.sky`; an explicit legacy client path remains supported. If official Computer Use initialized or replaced `sky` earlier in a conversation, custom setup must still run. The bootstrap checks both the wrapper marker and the current `sky` identity, and requires reading the installed official skill's guidance and confirmation documents before control.
 
 ## Privacy
 

@@ -27,30 +27,19 @@ Custom policy can be less or more restrictive than default policy. It cannot ove
 Before first use in a conversation, load wrapper through Node REPL JavaScript. Do this even when `globalThis.sky` already exists; official Computer Use may have initialized it first.
 
 ```js
-if (!globalThis.computerCustomRuntime?.wrapped) {
+if (!globalThis.computerCustomRuntime?.wrapped || globalThis.sky !== globalThis.computerCustomRuntime.sky) {
+  const { sky: officialSky } = await import("@oai/sky");
   const { setupComputerCustomRuntime } = await import("<plugin root>/scripts/computer-custom-client.mjs");
-  await setupComputerCustomRuntime({ globals: globalThis });
+  await setupComputerCustomRuntime({ globals: globalThis, officialSky });
 }
 globalThis.apps = await sky.list_apps();
 nodeRepl.write(JSON.stringify(apps, null, 2));
 ```
 
-Before controlling any Windows app, read live official guidance and confirmation policy:
-
-```js
-globalThis.computerCustomGuidance = await sky.documentation("guidance");
-nodeRepl.write(computerCustomGuidance);
-```
-
-```js
-globalThis.computerCustomConfirmations = await sky.documentation("confirmations");
-nodeRepl.write(computerCustomConfirmations);
-```
-
-Read `await sky.documentation("api")` when method signatures or returned shapes are unclear.
+Before controlling any Windows app, read the installed official Computer Use `SKILL.md` and the `docs/guidance.md` and `docs/confirmations.md` files it references. Resolve those paths against that installed skill as directed there. Read its `docs/api.md` when method signatures or returned shapes are unclear.
 
 - The official bundled Computer Use plugin must be installed locally.
-- This plugin locates `computer-use-client.mjs` at runtime and does not bundle OpenAI runtime files.
+- Import the official `@oai/sky` package in the host session and pass its `sky` export as `officialSky`. The wrapper does not bundle OpenAI runtime files.
 - Never skip custom setup merely because `sky` exists. Check `computerCustomRuntime?.wrapped`.
 - Do not initialize official Computer Use again after custom setup; that would replace policy wrapper.
 - Set `COMPUTER_CUSTOM_OFFICIAL_CLIENT` to an explicit `computer-use-client.mjs` path only for local debugging.

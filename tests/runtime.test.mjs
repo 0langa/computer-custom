@@ -25,8 +25,47 @@ describe("Computer Custom runtime", () => {
 
     assert.match(skill, /computerCustomRuntime\?\.wrapped/);
     assert.doesNotMatch(skill, /if \(!globalThis\.sky\)/);
-    assert.match(skill, /documentation\("guidance"\)/);
-    assert.match(skill, /documentation\("confirmations"\)/);
+    assert.match(skill, /import\("@oai\/sky"\)/);
+    assert.match(skill, /officialSky/);
+    assert.match(skill, /docs\/guidance\.md/);
+    assert.match(skill, /docs\/confirmations\.md/);
+    assert.doesNotMatch(skill, /sky\.documentation\(/);
+  });
+
+  it("wraps the package-exported sky without a legacy client file", async () => {
+    const fixture = createFixture();
+    fs.unlinkSync(fixture.officialClientPath);
+    const calls = [];
+    const officialSky = {
+      async list_apps() { return [{ id: "package-app", windows: [] }]; },
+      async click(input) { calls.push(input); },
+    };
+    const globals = {};
+    const wrapped = await setupComputerCustomRuntime({
+      globals, officialSky, policyPath: fixture.policyPath,
+    });
+    assert.notEqual(wrapped, officialSky);
+    assert.deepEqual(await wrapped.list_apps(), [{ id: "package-app", windows: [] }]);
+    await assert.rejects(
+      wrapped.click({ window: { app: "cmd.exe", id: 1 }, x: 1, y: 1 }),
+      /Computer Custom blocked click/,
+    );
+    assert.equal(calls.length, 0);
+    assert.equal(globals.computerCustomAudit.at(-1).decision, "block");
+  });
+
+  it("wraps an existing package sky again if the global wrapper was replaced", async () => {
+    const fixture = createFixture();
+    const original = { async list_apps() { return [{ id: "first" }]; } };
+    const globals = { sky: original };
+    const first = await setupComputerCustomRuntime({ globals, policyPath: fixture.policyPath });
+    assert.notEqual(first, original);
+    assert.equal(await setupComputerCustomRuntime({ globals, policyPath: fixture.policyPath }), first);
+    globals.sky = { async list_apps() { return [{ id: "replacement" }]; } };
+    const second = await setupComputerCustomRuntime({ globals, policyPath: fixture.policyPath });
+    assert.notEqual(first, second);
+    assert.deepEqual(await second.list_apps(), [{ id: "replacement" }]);
+    assert.equal(globals.computerCustomRuntime.sky, globals.sky);
   });
 
   it("wraps an already initialized official sky instead of skipping setup", async () => {

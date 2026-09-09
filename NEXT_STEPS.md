@@ -1,11 +1,13 @@
 # Computer Custom — Current Status
 
-_Last verified: 2026-08-05_
+_Last verified: 2026-09-09_
 
 ## Current source state
 
-- The latest released source tag is `v0.1.5`. Check local and remote branch
-  heads live before release work.
+- Version 0.1.6: bootstrap imports the host's `@oai/sky` package and injects its API into the policy wrapper. Documentation comes from the installed official skill and its referenced files.
+- The source release is `v0.1.6`; package and generated provider manifests agree.
+- Real Codex host smoke passed against the installed official runtime: the wrapper
+  loaded, listed apps and windows, and sent no input actions.
 - `package.json` is the version source of truth. `npm run build` compiles `src/*.mts`
   into ignored `build/` files and regenerates the tracked plugin at
   `dist/computer-custom`.
@@ -18,7 +20,7 @@ _Last verified: 2026-08-05_
 | Command | Verifies |
 | --- | --- |
 | `npm ci` | Locked development dependencies |
-| `npm test` | Build plus 22 Node regression tests |
+| `npm test` | Build plus 24 Node regression tests |
 | `npm run scan:public` | No bundled upstream/private runtime files in the public output |
 
 `.github/workflows/ci.yml` runs those three commands on Windows for every push

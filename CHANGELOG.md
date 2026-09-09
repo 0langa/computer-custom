@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.6 - 2026-09-09
+
+- Initialize against the current host-provided `@oai/sky` API instead of requiring an obsolete bundled client filename.
+- Accept an injected official API, preserve explicit legacy-client support, and rewrap a replaced global API.
+- Read the installed official skill's documentation files rather than calling the removed `sky.documentation` method.
+
 ## 0.1.5 - 2026-08-05
 
 - Added Windows source-validation CI and stabilized generated public-plugin text files.

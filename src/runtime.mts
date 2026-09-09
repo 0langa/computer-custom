@@ -15,6 +15,7 @@ import {
 
 export type SetupComputerCustomRuntimeOptions = {
   globals?: Record<string, any>;
+  officialSky?: Record<string, any>;
   officialClientPath?: string;
   policyPath?: string;
 };
@@ -32,6 +33,7 @@ const AUTHORIZED_CONFIRMATION_TTL_MS = 60 * 1000;
 
 export async function setupComputerCustomRuntime({
   globals = globalThis as Record<string, any>,
+  officialSky,
   officialClientPath,
   policyPath,
 }: SetupComputerCustomRuntimeOptions = {}): Promise<unknown> {
@@ -44,19 +46,31 @@ export async function setupComputerCustomRuntime({
     return globals.sky;
   }
 
-  const resolvedOfficialClientPath =
-    officialClientPath ?? resolveOfficialComputerUseClientPath();
-  const officialModule = await import(pathToFileURL(resolvedOfficialClientPath).href);
-
-  if (typeof officialModule.setupComputerUseRuntime !== "function") {
-    throw new Error(
-      `Computer Custom expected setupComputerUseRuntime export at ${resolvedOfficialClientPath}`,
-    );
+  // Import @oai/sky in the host session and pass it here when its module resolver
+  // is only available to that session. Explicit legacy clients remain supported.
+  const legacyClient = officialClientPath ?? (
+    officialSky == null ? readEnvironmentValue("COMPUTER_CUSTOM_OFFICIAL_CLIENT")?.trim() : undefined
+  );
+  let resolvedSky = officialSky;
+  if (legacyClient) {
+    const officialModule = await import(pathToFileURL(legacyClient).href);
+    if (typeof officialModule.setupComputerUseRuntime !== "function") {
+      throw new Error(
+        `Computer Custom expected setupComputerUseRuntime export at ${legacyClient}`,
+      );
+    }
+    await officialModule.setupComputerUseRuntime({ globals });
+    resolvedSky = globals.sky;
+  } else if (resolvedSky == null) {
+    if (globals.sky != null) {
+      resolvedSky = globals.sky;
+    } else {
+      const packageName = "@oai/sky";
+      resolvedSky = (await import(packageName)).sky;
+    }
   }
 
-  await officialModule.setupComputerUseRuntime({ globals });
-
-  if (globals.sky == null || typeof globals.sky !== "object") {
+  if (resolvedSky == null || typeof resolvedSky.list_apps !== "function") {
     throw new Error("Computer Custom could not find initialized sky runtime");
   }
 
@@ -67,10 +81,10 @@ export async function setupComputerCustomRuntime({
     : [];
   globals.computerCustomAuthorizePending = (phrase: string) =>
     authorizePendingComputerCustomAction(globals, phrase);
-  const wrappedSky = createPolicySkyProxy(globals.sky, { globals, policy });
+  const wrappedSky = createPolicySkyProxy(resolvedSky, { globals, policy });
   globals.sky = wrappedSky;
   globals.computerCustomRuntime = {
-    officialClientPath: resolvedOfficialClientPath,
+    officialClientPath: legacyClient,
     policyPath: policyPath ?? resolveDefaultPolicyPath(),
     sky: wrappedSky,
     wrapped: true,
