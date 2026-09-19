@@ -14,7 +14,7 @@
     "test": "npm run build && node --test tests/*.test.mjs",
     "sync:upstream": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/sync-upstream.ps1",
     "scan:public": "node scripts/check-public-safety.mjs",
-    "publish:helper": "dotnet publish helper/ComputerCustom.Helper -c Release -o dist/computer-custom/helper --nologo -v q",
+    "publish:helper": "dotnet publish helper/ComputerCustom.Helper -c Release -o dist/computer-custom/helper --nologo -v q && dotnet publish helper/ComputerCustom.Overlay -c Release -o dist/computer-custom/helper --nologo -v q",
     "package": "npm run build && npm run publish:helper",
     "verify:elevation": "npm run build && node scripts/verify-elevation.mjs"
   },

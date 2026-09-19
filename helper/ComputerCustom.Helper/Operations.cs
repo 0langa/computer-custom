@@ -80,6 +80,7 @@ internal static class Operations
     private static Outcome FocusWindow(JsonElement args)
     {
         DesktopGuard.EnsureInteractiveDesktop();
+        UserActivity.WaitForQuiet();
         WindowInspector.Focus(RequiredLong(args, "handle"));
         return new Outcome(new { focused = true });
     }
@@ -107,73 +108,86 @@ internal static class Operations
 
     // ---- act ------------------------------------------------------------
 
-    private static Outcome Move(JsonElement args)
+    /// <summary>
+    /// Run before anything that injects input: refuses on the secure desktop,
+    /// then waits for a gap in the user's own typing and clicking.
+    ///
+    /// Returns how long it waited, which callers report rather than hide. A
+    /// silent pause looks like a hang; a reported one looks like courtesy.
+    /// </summary>
+    private static int PrepareForInput()
     {
         DesktopGuard.EnsureInteractiveDesktop();
+        return UserActivity.WaitForQuiet();
+    }
+
+    private static Outcome Move(JsonElement args)
+    {
+        var deferred = PrepareForInput();
         var x = RequiredInt(args, "x");
         var y = RequiredInt(args, "y");
         InputSender.Move(x, y);
-        return new Outcome(new { x, y });
+        return new Outcome(new { x, y, deferredMs = deferred });
     }
 
     private static Outcome Click(JsonElement args)
     {
-        DesktopGuard.EnsureInteractiveDesktop();
+        var deferred = PrepareForInput();
         var x = RequiredInt(args, "x");
         var y = RequiredInt(args, "y");
         InputSender.Click(x, y, OptionalString(args, "button") ?? "left", OptionalInt(args, "count") ?? 1);
-        return new Outcome(new { x, y });
+        return new Outcome(new { x, y, deferredMs = deferred });
     }
 
     private static Outcome Drag(JsonElement args)
     {
-        DesktopGuard.EnsureInteractiveDesktop();
+        var deferred = PrepareForInput();
         InputSender.Drag(
             RequiredInt(args, "fromX"),
             RequiredInt(args, "fromY"),
             RequiredInt(args, "toX"),
             RequiredInt(args, "toY"),
             OptionalString(args, "button") ?? "left");
-        return new Outcome(new { dragged = true });
+        return new Outcome(new { dragged = true, deferredMs = deferred });
     }
 
     private static Outcome Scroll(JsonElement args)
     {
-        DesktopGuard.EnsureInteractiveDesktop();
+        var deferred = PrepareForInput();
         InputSender.Scroll(
             RequiredInt(args, "x"),
             RequiredInt(args, "y"),
             OptionalInt(args, "dx") ?? 0,
             OptionalInt(args, "dy") ?? 0);
-        return new Outcome(new { scrolled = true });
+        return new Outcome(new { scrolled = true, deferredMs = deferred });
     }
 
     private static Outcome TypeText(JsonElement args)
     {
-        DesktopGuard.EnsureInteractiveDesktop();
+        var deferred = PrepareForInput();
         var text = RequiredString(args, "text");
         InputSender.TypeText(text);
-        return new Outcome(new { length = text.Length });
+        return new Outcome(new { length = text.Length, deferredMs = deferred });
     }
 
     private static Outcome PressKeys(JsonElement args)
     {
-        DesktopGuard.EnsureInteractiveDesktop();
+        var deferred = PrepareForInput();
         var keys = RequiredStringArray(args, "keys");
         InputSender.PressKeys(keys);
-        return new Outcome(new { keys });
+        return new Outcome(new { keys, deferredMs = deferred });
     }
 
     private static Outcome InvokeElement(JsonElement args)
     {
-        DesktopGuard.EnsureInteractiveDesktop();
+        PrepareForInput();
         UiTree.Invoke(RequiredString(args, "elementId"));
         return new Outcome(new { invoked = true });
     }
 
     private static Outcome SetElementValue(JsonElement args)
     {
-        DesktopGuard.EnsureInteractiveDesktop();
+        PrepareForInput();
         UiTree.SetValue(RequiredString(args, "elementId"), RequiredString(args, "value"));
         return new Outcome(new { set = true });
     }

@@ -36,6 +36,12 @@ internal static class InputSender
     private static void Send(params Win32.INPUT[] inputs)
     {
         var sent = Win32.SendInput((uint)inputs.Length, inputs, Marshal.SizeOf<Win32.INPUT>());
+
+        // GetLastInputInfo counts synthetic input too, so this has to be
+        // recorded or the helper would see its own keystrokes and conclude the
+        // user was busy.
+        UserActivity.RecordInjection();
+
         if (sent == inputs.Length)
         {
             return;

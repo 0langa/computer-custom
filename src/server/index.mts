@@ -14,7 +14,8 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { AuditLog } from "./audit.mjs";
 import { loadServerConfig } from "./config.mjs";
 import { HelperProcess } from "./helper-process.mjs";
-import { registerTools } from "./tools.mjs";
+import { Overlay } from "./overlay.mjs";
+import { type SessionState, registerTools } from "./tools.mjs";
 
 const SERVER_INSTRUCTIONS = `Controls this Windows machine: screen, mouse, keyboard, windows.
 
@@ -36,21 +37,44 @@ Limits that are real, not policy:
     asks you for confirmation first, and that is deliberate.
 
 Some actions are gated. When one is, relay the request to the user and use the
-phrase they give you. Never invent a confirmation phrase.`;
+phrase they give you. Never invent a confirmation phrase.
+
+The user can see a coloured border while you work, and can stop you instantly
+with Ctrl+Alt+Shift+Esc. If a call reports the session was halted, stop: do not
+retry, do not work around it, tell them and wait.`;
 
 async function main(): Promise<void> {
   const config = loadServerConfig();
   const audit = new AuditLog(config.policy, config.auditPath);
   const helper = new HelperProcess();
+  const session: SessionState = { halted: false };
+
+  // The stop key has to mean something immediately, so it kills the helper
+  // rather than asking it to finish. Whatever was mid-flight fails, which is
+  // the correct outcome for a panic button.
+  const overlay = new Overlay({
+    onPanic: () => {
+      session.halted = true;
+      session.reason = "The user pressed the stop key (Ctrl+Alt+Shift+Esc) and halted this session.";
+      helper.stop();
+      audit.append({
+        tool: "panic",
+        decision: "denied",
+        reason: "User pressed the stop hotkey",
+        args: {},
+      });
+    },
+  });
 
   const mcp = new McpServer(
     { name: "computer-custom", version: "0.2.0" },
     { capabilities: { tools: {} }, instructions: SERVER_INSTRUCTIONS },
   );
 
-  registerTools({ mcp, helper, policy: config.policy, audit });
+  registerTools({ mcp, helper, policy: config.policy, audit, overlay, session });
 
   const shutdown = () => {
+    overlay.stop();
     helper.stop();
     process.exit(0);
   };
@@ -59,7 +83,10 @@ async function main(): Promise<void> {
   process.on("SIGTERM", shutdown);
   // The helper outlives its parent unless it is killed explicitly, and an
   // orphan holding the input queue is the last thing anyone wants.
-  process.on("exit", () => helper.stop());
+  process.on("exit", () => {
+    overlay.stop();
+    helper.stop();
+  });
 
   await mcp.connect(new StdioServerTransport());
 }

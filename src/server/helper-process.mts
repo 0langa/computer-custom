@@ -321,10 +321,22 @@ function bundledHelperPath(): string | undefined {
   return candidates.find((candidate) => fs.existsSync(candidate));
 }
 
-/** Elevated mode is opt-in; see the session-file note above for why. */
+/**
+ * Elevated mode is opt-OUT.
+ *
+ * This plugin is invoked deliberately, by someone who wants more reach than
+ * the ordinary computer-use tools give them; anything less and they would use
+ * those instead. Defaulting to the weaker mode would mean the common case is
+ * the one that silently cannot do the job.
+ *
+ * It costs nothing when unavailable: without the signed helper installed the
+ * session falls back to normal privilege and says so. The session file is
+ * written only on the elevated path, so the trade-off noted above applies only
+ * when elevation is actually used.
+ */
 function wantsElevated(): boolean {
   const value = process.env.COMPUTER_CUSTOM_ELEVATED;
-  return value === "1" || value?.toLowerCase() === "true";
+  return value !== "0" && value?.toLowerCase() !== "false";
 }
 
 /** PowerShell single-quoted string: the only escape inside one is a doubled quote. */

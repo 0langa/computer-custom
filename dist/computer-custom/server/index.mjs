@@ -3262,8 +3262,8 @@ var require_utils = __commonJS({
       }
       return ind;
     }
-    function removeDotSegments(path7) {
-      let input2 = path7;
+    function removeDotSegments(path8) {
+      let input2 = path8;
       const output2 = [];
       let nextSlash = -1;
       let len = 0;
@@ -3672,8 +3672,8 @@ var require_schemes = __commonJS({
       }
       if (wsComponent.resourceName) {
         const queryIndex = wsComponent.resourceName.indexOf("?");
-        const path7 = queryIndex === -1 ? wsComponent.resourceName : wsComponent.resourceName.slice(0, queryIndex);
-        wsComponent.path = path7 && path7 !== "/" ? path7 : void 0;
+        const path8 = queryIndex === -1 ? wsComponent.resourceName : wsComponent.resourceName.slice(0, queryIndex);
+        wsComponent.path = path8 && path8 !== "/" ? path8 : void 0;
         wsComponent.query = queryIndex === -1 ? void 0 : wsComponent.resourceName.slice(queryIndex + 1);
         wsComponent.resourceName = void 0;
       }
@@ -7186,12 +7186,12 @@ var require_dist = __commonJS({
         throw new Error(`Unknown format "${name}"`);
       return f;
     };
-    function addFormats(ajv, list, fs7, exportName) {
+    function addFormats(ajv, list, fs8, exportName) {
       var _a3;
       var _b;
       (_a3 = (_b = ajv.opts.code).formats) !== null && _a3 !== void 0 ? _a3 : _b.formats = (0, codegen_1._)`require("ajv-formats/dist/formats").${exportName}`;
       for (const f of list)
-        ajv.addFormat(f, fs7[f]);
+        ajv.addFormat(f, fs8[f]);
     }
     module.exports = exports = formatsPlugin;
     Object.defineProperty(exports, "__esModule", { value: true });
@@ -7573,8 +7573,8 @@ function getErrorMap() {
 
 // node_modules/zod/v3/helpers/parseUtil.js
 var makeIssue = (params) => {
-  const { data, path: path7, errorMaps, issueData } = params;
-  const fullPath = [...path7, ...issueData.path || []];
+  const { data, path: path8, errorMaps, issueData } = params;
+  const fullPath = [...path8, ...issueData.path || []];
   const fullIssue = {
     ...issueData,
     path: fullPath
@@ -7689,11 +7689,11 @@ var errorUtil;
 
 // node_modules/zod/v3/types.js
 var ParseInputLazyPath = class {
-  constructor(parent, value, path7, key) {
+  constructor(parent, value, path8, key) {
     this._cachedPath = [];
     this.parent = parent;
     this.data = value;
-    this._path = path7;
+    this._path = path8;
     this._key = key;
   }
   get path() {
@@ -11647,10 +11647,10 @@ function mergeDefs(...defs) {
 function cloneDef(schema) {
   return mergeDefs(schema._zod.def);
 }
-function getElementAtPath(obj, path7) {
-  if (!path7)
+function getElementAtPath(obj, path8) {
+  if (!path8)
     return obj;
-  return path7.reduce((acc, key) => acc?.[key], obj);
+  return path8.reduce((acc, key) => acc?.[key], obj);
 }
 function promiseAllObject(promisesObj) {
   const keys = Object.keys(promisesObj);
@@ -11990,11 +11990,11 @@ function explicitlyAborted(x, startIndex = 0) {
   }
   return false;
 }
-function prefixIssues(path7, issues) {
+function prefixIssues(path8, issues) {
   return issues.map((iss) => {
     var _a3;
     (_a3 = iss).path ?? (_a3.path = []);
-    iss.path.unshift(path7);
+    iss.path.unshift(path8);
     return iss;
   });
 }
@@ -12444,16 +12444,16 @@ function flattenError(error62, mapper = (issue2) => issue2.message) {
 }
 function formatError(error62, mapper = (issue2) => issue2.message) {
   const fieldErrors = { _errors: [] };
-  const processError = (error63, path7 = []) => {
+  const processError = (error63, path8 = []) => {
     for (const issue2 of error63.issues) {
       if (issue2.code === "invalid_union" && issue2.errors.length) {
-        issue2.errors.map((issues) => processError({ issues }, [...path7, ...issue2.path]));
+        issue2.errors.map((issues) => processError({ issues }, [...path8, ...issue2.path]));
       } else if (issue2.code === "invalid_key") {
-        processError({ issues: issue2.issues }, [...path7, ...issue2.path]);
+        processError({ issues: issue2.issues }, [...path8, ...issue2.path]);
       } else if (issue2.code === "invalid_element") {
-        processError({ issues: issue2.issues }, [...path7, ...issue2.path]);
+        processError({ issues: issue2.issues }, [...path8, ...issue2.path]);
       } else {
-        const fullpath = [...path7, ...issue2.path];
+        const fullpath = [...path8, ...issue2.path];
         if (fullpath.length === 0) {
           fieldErrors._errors.push(mapper(issue2));
         } else {
@@ -12492,17 +12492,17 @@ function formatError(error62, mapper = (issue2) => issue2.message) {
 }
 function treeifyError(error62, mapper = (issue2) => issue2.message) {
   const result = { errors: [] };
-  const processError = (error63, path7 = []) => {
+  const processError = (error63, path8 = []) => {
     var _a3;
     for (const issue2 of error63.issues) {
       if (issue2.code === "invalid_union" && issue2.errors.length) {
-        issue2.errors.map((issues) => processError({ issues }, [...path7, ...issue2.path]));
+        issue2.errors.map((issues) => processError({ issues }, [...path8, ...issue2.path]));
       } else if (issue2.code === "invalid_key") {
-        processError({ issues: issue2.issues }, [...path7, ...issue2.path]);
+        processError({ issues: issue2.issues }, [...path8, ...issue2.path]);
       } else if (issue2.code === "invalid_element") {
-        processError({ issues: issue2.issues }, [...path7, ...issue2.path]);
+        processError({ issues: issue2.issues }, [...path8, ...issue2.path]);
       } else {
-        const fullpath = [...path7, ...issue2.path];
+        const fullpath = [...path8, ...issue2.path];
         if (fullpath.length === 0) {
           result.errors.push(mapper(issue2));
           continue;
@@ -12541,8 +12541,8 @@ function treeifyError(error62, mapper = (issue2) => issue2.message) {
 }
 function toDotPath(_path) {
   const segs = [];
-  const path7 = _path.map((seg) => typeof seg === "object" ? seg.key : seg);
-  for (const seg of path7) {
+  const path8 = _path.map((seg) => typeof seg === "object" ? seg.key : seg);
+  for (const seg of path8) {
     if (typeof seg === "number")
       segs.push(`[${seg}]`);
     else if (typeof seg === "symbol")
@@ -28057,11 +28057,11 @@ function normalizeObjectSchema(schema) {
   }
   return void 0;
 }
-function getDotPath(path7) {
-  if (path7.length === 0) {
+function getDotPath(path8) {
+  if (path8.length === 0) {
     return "object root";
   }
-  return path7.reduce((acc, seg, index) => {
+  return path8.reduce((acc, seg, index) => {
     if (index === 0) {
       return String(seg);
     }
@@ -30288,13 +30288,13 @@ function resolveRef(ref, ctx) {
   if (!ref.startsWith("#")) {
     throw new Error("External $ref is not supported, only local refs (#/...) are allowed");
   }
-  const path7 = ref.slice(1).split("/").filter(Boolean);
-  if (path7.length === 0) {
+  const path8 = ref.slice(1).split("/").filter(Boolean);
+  if (path8.length === 0) {
     return ctx.rootSchema;
   }
   const defsKey = ctx.version === "draft-2020-12" ? "$defs" : "definitions";
-  if (path7[0] === defsKey) {
-    const key = path7[1] === void 0 ? void 0 : decodeJSONPointerSegment(path7[1]);
+  if (path8[0] === defsKey) {
+    const key = path8[1] === void 0 ? void 0 : decodeJSONPointerSegment(path8[1]);
     if (!key || !ctx.defs[key]) {
       throw new Error(`Reference not found: ${ref}`);
     }
@@ -37286,7 +37286,7 @@ function bundledHelperPath() {
 }
 function wantsElevated() {
   const value = process.env.COMPUTER_CUSTOM_ELEVATED;
-  return value === "1" || value?.toLowerCase() === "true";
+  return value !== "0" && value?.toLowerCase() !== "false";
 }
 function quoteForPowerShell(value) {
   return `'${value.replaceAll("'", "''")}'`;
@@ -37318,6 +37318,130 @@ function resolveHelperPath() {
   throw new HelperClientError("HELPER_UNAVAILABLE", `Could not find the helper executable. Looked in:
 ${candidates.join("\n")}
 Set COMPUTER_CUSTOM_HELPER to its path, or build it with: dotnet build helper/ComputerCustom.Helper`);
+}
+
+// build/server/overlay.mjs
+import { spawn as spawn2 } from "node:child_process";
+import fs5 from "node:fs";
+import path5 from "node:path";
+import { fileURLToPath as fileURLToPath3 } from "node:url";
+var Overlay = class {
+  #options;
+  #child;
+  #state = "idle";
+  #failed = false;
+  constructor(options = {}) {
+    this.#options = options;
+  }
+  get enabled() {
+    const value = process.env.COMPUTER_CUSTOM_OVERLAY;
+    return value !== "0" && value?.toLowerCase() !== "false";
+  }
+  get running() {
+    return this.#child !== void 0 && !this.#child.killed;
+  }
+  /** Starts the overlay if it is enabled and not already up. */
+  start() {
+    if (!this.enabled || this.running || this.#failed) {
+      return;
+    }
+    const executable = this.#options.executablePath ?? resolveOverlayPath();
+    if (!executable) {
+      this.#failed = true;
+      return;
+    }
+    try {
+      const child = spawn2(executable, {
+        stdio: ["pipe", "pipe", "ignore"],
+        windowsHide: true
+      });
+      child.on("error", () => {
+        this.#failed = true;
+        this.#child = void 0;
+      });
+      child.on("exit", () => {
+        this.#child = void 0;
+      });
+      child.stdin?.on("error", () => {
+      });
+      child.stdout?.on("error", () => {
+      });
+      let buffered = "";
+      child.stdout?.on("data", (chunk) => {
+        buffered += chunk.toString();
+        const lines = buffered.split("\n");
+        buffered = lines.pop() ?? "";
+        for (const line of lines) {
+          this.handleEvent(line.trim());
+        }
+      });
+      this.#child = child;
+      this.#send({ state: this.#state });
+    } catch {
+      this.#failed = true;
+    }
+  }
+  setState(state) {
+    if (this.#state === state) {
+      return;
+    }
+    this.#state = state;
+    this.#send({ state });
+  }
+  /** Marks where a click landed, so a fast sequence can be followed. */
+  ripple(x, y) {
+    this.#send({ ripple: { x, y } });
+  }
+  stop() {
+    this.#send({ quit: true });
+    try {
+      this.#child?.kill();
+    } catch {
+    }
+    this.#child = void 0;
+  }
+  /**
+   * Handles one line of the overlay's output.
+   *
+   * Public because the stdout reader is not the only legitimate caller: a test
+   * needs to drive the path from an event to the panic callback without
+   * synthesising a real keypress.
+   */
+  handleEvent(line) {
+    if (line.length === 0) {
+      return;
+    }
+    try {
+      const event = JSON.parse(line);
+      if (event.event === "panic") {
+        this.#options.onPanic?.();
+      }
+    } catch {
+    }
+  }
+  #send(payload) {
+    if (!this.#child?.stdin?.writable) {
+      return;
+    }
+    try {
+      this.#child.stdin.write(`${JSON.stringify(payload)}
+`);
+    } catch {
+    }
+  }
+};
+function resolveOverlayPath() {
+  const override = process.env.COMPUTER_CUSTOM_OVERLAY_EXE;
+  if (override) {
+    return fs5.existsSync(override) ? override : void 0;
+  }
+  const here = path5.dirname(fileURLToPath3(import.meta.url));
+  const candidates = [
+    path5.resolve(here, "..", "helper", "computer-custom-overlay.exe"),
+    path5.resolve(here, "..", "..", "helper", "computer-custom-overlay.exe"),
+    path5.resolve(here, "..", "..", "helper", "ComputerCustom.Overlay", "bin", "Debug", "net10.0-windows", "computer-custom-overlay.exe")
+  ];
+  return candidates.find((candidate) => fs5.existsSync(candidate));
 }
 
 // build/server/confirm.mjs
@@ -37423,8 +37547,8 @@ function buildManualInstructions(request) {
 
 // build/server/system.mjs
 import { execFile } from "node:child_process";
-import fs5 from "node:fs/promises";
-import path5 from "node:path";
+import fs6 from "node:fs/promises";
+import path6 from "node:path";
 var MAX_OUTPUT_BYTES = 1e5;
 var DEFAULT_TIMEOUT_MS = 12e4;
 async function runShell(options) {
@@ -37467,13 +37591,13 @@ Timed out after ${timeout}ms.` : err),
 }
 async function readTextFile(filePath, maxBytes) {
   const limit = maxBytes ?? MAX_OUTPUT_BYTES;
-  const resolved = path5.resolve(filePath);
-  const stat = await fs5.stat(resolved).catch(() => void 0);
+  const resolved = path6.resolve(filePath);
+  const stat = await fs6.stat(resolved).catch(() => void 0);
   if (!stat) {
     throw new Error(`No such file: ${resolved}`);
   }
   if (stat.isDirectory()) {
-    const entries = await fs5.readdir(resolved, { withFileTypes: true });
+    const entries = await fs6.readdir(resolved, { withFileTypes: true });
     return {
       path: resolved,
       content: entries.map((entry) => `${entry.isDirectory() ? "dir " : "file"}  ${entry.name}`).join("\n"),
@@ -37481,7 +37605,7 @@ async function readTextFile(filePath, maxBytes) {
       truncated: false
     };
   }
-  const handle = await fs5.open(resolved, "r");
+  const handle = await fs6.open(resolved, "r");
   try {
     const buffer = Buffer.alloc(Math.min(stat.size, limit));
     await handle.read(buffer, 0, buffer.byteLength, 0);
@@ -37496,46 +37620,46 @@ async function readTextFile(filePath, maxBytes) {
   }
 }
 async function writeTextFile(filePath, content, append) {
-  const resolved = path5.resolve(filePath);
-  await fs5.mkdir(path5.dirname(resolved), { recursive: true });
+  const resolved = path6.resolve(filePath);
+  await fs6.mkdir(path6.dirname(resolved), { recursive: true });
   if (append) {
-    await fs5.appendFile(resolved, content, "utf8");
+    await fs6.appendFile(resolved, content, "utf8");
   } else {
-    await fs5.writeFile(resolved, content, "utf8");
+    await fs6.writeFile(resolved, content, "utf8");
   }
   return { path: resolved, bytes: Buffer.byteLength(content, "utf8"), append };
 }
 async function deletePath(targetPath, recursive2) {
-  const resolved = path5.resolve(targetPath);
-  const stat = await fs5.stat(resolved).catch(() => void 0);
+  const resolved = path6.resolve(targetPath);
+  const stat = await fs6.stat(resolved).catch(() => void 0);
   if (!stat) {
     throw new Error(`No such path: ${resolved}`);
   }
   if (stat.isDirectory()) {
-    const entries = await fs5.readdir(resolved);
+    const entries = await fs6.readdir(resolved);
     if (!recursive2 && entries.length > 0) {
       throw new Error(`${resolved} is a directory holding ${entries.length} entries. Pass recursive: true to remove it and everything inside.`);
     }
-    await fs5.rm(resolved, { recursive: true, force: false });
+    await fs6.rm(resolved, { recursive: true, force: false });
     return { path: resolved, kind: "directory", entriesRemoved: entries.length };
   }
-  await fs5.rm(resolved, { force: false });
+  await fs6.rm(resolved, { force: false });
   return { path: resolved, kind: "file", entriesRemoved: 1 };
 }
 async function describeDeleteTarget(targetPath) {
-  const resolved = path5.resolve(targetPath);
-  const stat = await fs5.stat(resolved).catch(() => void 0);
+  const resolved = path6.resolve(targetPath);
+  const stat = await fs6.stat(resolved).catch(() => void 0);
   if (!stat) {
     return `${resolved} (does not exist)`;
   }
   if (!stat.isDirectory()) {
     return `the file ${resolved} (${stat.size} bytes)`;
   }
-  const entries = await fs5.readdir(resolved).catch(() => []);
+  const entries = await fs6.readdir(resolved).catch(() => []);
   return `the directory ${resolved} and its ${entries.length} entries`;
 }
 async function assertDirectory(candidate) {
-  const stat = await fs5.stat(candidate).catch(() => void 0);
+  const stat = await fs6.stat(candidate).catch(() => void 0);
   if (!stat?.isDirectory()) {
     throw new Error(`Working directory does not exist: ${candidate}`);
   }
@@ -37546,8 +37670,8 @@ function clamp(value) {
 }
 
 // build/server/flows.mjs
-import fs6 from "node:fs/promises";
-import path6 from "node:path";
+import fs7 from "node:fs/promises";
+import path7 from "node:path";
 import { pathToFileURL } from "node:url";
 var FLOW_EXTENSIONS = /* @__PURE__ */ new Set([".mjs", ".js"]);
 var FLOW_TOOLS = [
@@ -37574,21 +37698,21 @@ var FLOW_TOOLS = [
   "fs_delete"
 ];
 function resolveFlowsDirectory() {
-  return process.env.COMPUTER_CUSTOM_FLOWS ?? path6.resolve(process.cwd(), "flows");
+  return process.env.COMPUTER_CUSTOM_FLOWS ?? path7.resolve(process.cwd(), "flows");
 }
 async function listFlows(directory) {
-  const entries = await fs6.readdir(directory, { withFileTypes: true }).catch(() => void 0);
+  const entries = await fs7.readdir(directory, { withFileTypes: true }).catch(() => void 0);
   if (!entries) {
     return [];
   }
   const flows = [];
   for (const entry of entries) {
-    if (!entry.isFile() || !FLOW_EXTENSIONS.has(path6.extname(entry.name))) {
+    if (!entry.isFile() || !FLOW_EXTENSIONS.has(path7.extname(entry.name))) {
       continue;
     }
-    const filePath = path6.join(directory, entry.name);
+    const filePath = path7.join(directory, entry.name);
     flows.push({
-      name: path6.basename(entry.name, path6.extname(entry.name)),
+      name: path7.basename(entry.name, path7.extname(entry.name)),
       description: await readDescription(filePath),
       path: filePath
     });
@@ -37652,9 +37776,9 @@ function buildFlowContext(invoke, args, logs) {
   return context;
 }
 async function findFlowFile(directory, name) {
-  const safe = path6.basename(name, path6.extname(name));
+  const safe = path7.basename(name, path7.extname(name));
   for (const extension of FLOW_EXTENSIONS) {
-    const candidate = path6.join(directory, `${safe}${extension}`);
+    const candidate = path7.join(directory, `${safe}${extension}`);
     if (await exists(candidate)) {
       return candidate;
     }
@@ -37662,12 +37786,12 @@ async function findFlowFile(directory, name) {
   return void 0;
 }
 async function readDescription(filePath) {
-  const source = await fs6.readFile(filePath, "utf8").catch(() => "");
+  const source = await fs7.readFile(filePath, "utf8").catch(() => "");
   const match = /export\s+const\s+description\s*=\s*(["'`])([\s\S]*?)\1/.exec(source);
   return match?.[2]?.trim() ?? "";
 }
 async function exists(candidate) {
-  return fs6.access(candidate).then(() => true).catch(() => false);
+  return fs7.access(candidate).then(() => true).catch(() => false);
 }
 
 // build/server/tools.mjs
@@ -37716,7 +37840,12 @@ async function withTargetContext(context, tool, args) {
   }
 }
 async function gated(context, tool, rawArgs, summary, run) {
+  if (context.session.halted) {
+    return failure2(`${context.session.reason ?? "The user stopped this session."} Do not retry. Tell the user the session was halted and wait for them.`);
+  }
   const { confirm: suppliedPhrase, ...args } = rawArgs;
+  context.overlay.start();
+  context.overlay.setState(INPUT_TOOLS.has(tool) ? "acting" : "observing");
   const payload = await withTargetContext(context, tool, args);
   const decision = classifyToolCall(tool, payload, context.policy);
   if (decision.action === "block") {
@@ -37730,6 +37859,7 @@ async function gated(context, tool, rawArgs, summary, run) {
   }
   if (decision.action === "confirm") {
     const target = payload.target;
+    context.overlay.setState("waiting");
     const outcome = await requestConfirmation(context.mcp.server, {
       tool,
       reason: decision.reason,
@@ -37743,6 +37873,7 @@ Target: ${target.process} \u2014 ${target.title ?? ""}`.trimEnd() : summary,
       suppliedPhrase
     });
     if (!outcome.approved) {
+      context.overlay.setState("idle");
       context.audit.append({
         tool,
         decision: "denied",
@@ -37759,7 +37890,15 @@ Target: ${target.process} \u2014 ${target.title ?? ""}`.trimEnd() : summary,
     });
   }
   try {
+    if (decision.action === "confirm") {
+      context.overlay.setState(INPUT_TOOLS.has(tool) ? "acting" : "observing");
+    }
     const result = await run(args);
+    if ((tool === "click" || tool === "drag") && typeof args.x === "number" && typeof args.y === "number") {
+      context.overlay.ripple(args.x, args.y);
+    } else if (tool === "drag" && typeof args.toX === "number" && typeof args.toY === "number") {
+      context.overlay.ripple(args.toX, args.toY);
+    }
     if (decision.action === "allow") {
       context.audit.append({ tool, decision: "allow", reason: decision.reason, args: payload, ok: true });
     }
@@ -37775,6 +37914,8 @@ Target: ${target.process} \u2014 ${target.title ?? ""}`.trimEnd() : summary,
       error: message
     });
     return failure2(message);
+  } finally {
+    context.overlay.setState("idle");
   }
 }
 function describeError(error62) {
@@ -38065,20 +38206,42 @@ Limits that are real, not policy:
     asks you for confirmation first, and that is deliberate.
 
 Some actions are gated. When one is, relay the request to the user and use the
-phrase they give you. Never invent a confirmation phrase.`;
+phrase they give you. Never invent a confirmation phrase.
+
+The user can see a coloured border while you work, and can stop you instantly
+with Ctrl+Alt+Shift+Esc. If a call reports the session was halted, stop: do not
+retry, do not work around it, tell them and wait.`;
 async function main() {
   const config2 = loadServerConfig();
   const audit = new AuditLog(config2.policy, config2.auditPath);
   const helper = new HelperProcess();
+  const session = { halted: false };
+  const overlay = new Overlay({
+    onPanic: () => {
+      session.halted = true;
+      session.reason = "The user pressed the stop key (Ctrl+Alt+Shift+Esc) and halted this session.";
+      helper.stop();
+      audit.append({
+        tool: "panic",
+        decision: "denied",
+        reason: "User pressed the stop hotkey",
+        args: {}
+      });
+    }
+  });
   const mcp = new McpServer({ name: "computer-custom", version: "0.2.0" }, { capabilities: { tools: {} }, instructions: SERVER_INSTRUCTIONS });
-  registerTools({ mcp, helper, policy: config2.policy, audit });
+  registerTools({ mcp, helper, policy: config2.policy, audit, overlay, session });
   const shutdown = () => {
+    overlay.stop();
     helper.stop();
     process.exit(0);
   };
   process.on("SIGINT", shutdown);
   process.on("SIGTERM", shutdown);
-  process.on("exit", () => helper.stop());
+  process.on("exit", () => {
+    overlay.stop();
+    helper.stop();
+  });
   await mcp.connect(new StdioServerTransport());
 }
 main().catch((error62) => {

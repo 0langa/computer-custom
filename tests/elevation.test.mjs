@@ -45,8 +45,20 @@ function track(helper) {
 }
 
 describe("helper start mode", { skip: !fs.existsSync(HELPER) && "helper not built" }, () => {
-  it("starts at normal privilege by default", async () => {
+  it("asks for elevation by default", async () => {
+    // Opt-out, not opt-in: this plugin is invoked because more reach is
+    // wanted. With no signed helper installed it still falls back cleanly.
+    pretendNotInstalled();
     delete process.env.COMPUTER_CUSTOM_ELEVATED;
+    const helper = track(new HelperProcess({ executablePath: HELPER }));
+
+    await helper.call("ping");
+
+    assert.equal(helper.startInfo.requested, "elevated");
+  });
+
+  it("can be forced down to normal privilege", async () => {
+    process.env.COMPUTER_CUSTOM_ELEVATED = "0";
     const helper = track(new HelperProcess({ executablePath: HELPER }));
 
     await helper.call("ping");
@@ -57,7 +69,7 @@ describe("helper start mode", { skip: !fs.existsSync(HELPER) && "helper not buil
   it("never claims uiAccess for the unsigned development helper", async () => {
     // uiAccess is granted only to a signed binary in a protected folder, so the
     // development build must always report false, however it was started.
-    delete process.env.COMPUTER_CUSTOM_ELEVATED;
+    process.env.COMPUTER_CUSTOM_ELEVATED = "0";
     const helper = track(new HelperProcess({ executablePath: HELPER }));
 
     const ping = (await helper.call("ping")).result;
@@ -71,7 +83,7 @@ describe("helper start mode", { skip: !fs.existsSync(HELPER) && "helper not buil
     // That is NOT the same as having been started through the signed uiAccess
     // path, and reporting it as such would tell the agent it can reach windows
     // it cannot. startInfo must describe the launch route, ping the reality.
-    delete process.env.COMPUTER_CUSTOM_ELEVATED;
+    process.env.COMPUTER_CUSTOM_ELEVATED = "0";
     const helper = track(new HelperProcess({ executablePath: HELPER }));
 
     const ping = (await helper.call("ping")).result;
@@ -147,7 +159,7 @@ describe("helper start mode", { skip: !fs.existsSync(HELPER) && "helper not buil
   });
 
   it("clears start information when stopped", async () => {
-    delete process.env.COMPUTER_CUSTOM_ELEVATED;
+    process.env.COMPUTER_CUSTOM_ELEVATED = "0";
     const helper = track(new HelperProcess({ executablePath: HELPER }));
     await helper.call("ping");
     assert.ok(helper.startInfo);

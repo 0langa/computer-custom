@@ -1,0 +1,37 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!--
+      WinExe: this process owns visible windows and a message pump, which is
+      exactly why it is a separate process. The helper's pipe loop blocks on
+      reads and has no pump; bolting a UI onto it would mean restructuring the
+      input path around one, for no benefit. Keeping them apart also means a
+      crash in the overlay cannot wedge input.
+    -->
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <AssemblyName>computer-custom-overlay</AssemblyName>
+    <RootNamespace>ComputerCustom.Overlay</RootNamespace>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <UseWindowsForms>true</UseWindowsForms>
+
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
+    <NoWarn>$(NoWarn);SYSLIB1054;CA1401</NoWarn>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <!-- Same reasoning as the helper: a portable pdb embeds the build
+         machine's absolute paths into a publicly distributed binary. -->
+    <DebugType>none</DebugType>
+    <DebugSymbols>false</DebugSymbols>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Using Include="System.IO" />
+  </ItemGroup>
+
+</Project>
