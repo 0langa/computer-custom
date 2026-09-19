@@ -14,3 +14,9 @@ upstream/openai-bundled/**
 # Local generated/transient files.
 *.tsbuildinfo
 *.log
+
+.codex_memory/
+
+# .NET helper build output
+helper/**/bin/
+helper/**/obj/

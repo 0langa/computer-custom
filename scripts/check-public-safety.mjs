@@ -10,6 +10,9 @@ const blocked = [
 ];
 const ignoredDirs = new Set([
   ".git",
+  // Local project memory. Git-ignored, so it never reaches the public repo,
+  // but it does hold machine paths and would fail every local run of this scan.
+  ".recall",
   "build",
   "node_modules",
   "upstream/openai-bundled",
@@ -48,7 +51,12 @@ function* listFiles(root) {
 }
 
 function isIgnored(relative) {
-  return [...ignoredDirs].some(
-    (dir) => relative === dir || relative.startsWith(`${dir}/`),
-  );
+  if ([...ignoredDirs].some((dir) => relative === dir || relative.startsWith(`${dir}/`))) {
+    return true;
+  }
+
+  // Compiler output anywhere in the tree. The .NET helper writes absolute
+  // machine paths into its bin/ and obj/ artefacts, and those are git-ignored,
+  // so scanning them only ever produces false alarms.
+  return relative.split("/").some((segment) => segment === "bin" || segment === "obj");
 }
