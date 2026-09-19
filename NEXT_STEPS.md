@@ -45,14 +45,14 @@ To reproduce elsewhere, from an elevated PowerShell:
 | 1 | C# helper, MCP server, both clients wired | Done |
 | 2 | `run_shell`, `fs_*`, saved flows | Done |
 | 3 | Signing + uiAccess elevation (level 2) | Done, installed, confirmed end to end |
-| 4 | Reversible UAC opt-in (level 3) | Not started |
+| 4 | UAC secure-desktop opt-in (level 3) | Done |
 
 ## Verification commands
 
 | Command | Verifies |
 | --- | --- |
 | `npm ci` | Locked development dependencies |
-| `npm test` | Build plus the Node regression suite (94 tests) |
+| `npm test` | Build plus the Node regression suite (95 tests) |
 | `npm run scan:public` | No machine paths or private runtime files in public output |
 | `npm run package` | Bundled server plus published helper in `dist/computer-custom` |
 | `dotnet build helper/ComputerCustom.Helper` | The native helper compiles |

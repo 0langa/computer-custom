@@ -176,6 +176,27 @@ mistake — treating an unrestricted operation as evidence:
 system integrity on the secure desktop. Signing and `uiAccess` reach elevated
 *application* windows, never system UI.
 
+### Phase 4 — the UAC secure-desktop opt-in
+
+- Added `scripts/uac-secure-desktop.ps1`. Reporting the current setting is the
+  default and needs no admin rights. `-Disable` refuses without `-IUnderstand`,
+  and `-Minutes` registers a one-shot task that restores the secure desktop
+  automatically, so a forgotten setting cannot leave the machine exposed. It
+  changes exactly one value, `PromptOnSecureDesktop`; it never touches UAC's
+  prompt behaviour and never disables UAC.
+- The script states the real cost rather than the convenient half of it:
+  turning the secure desktop off does not grant this capability to Computer
+  Custom, it grants it to every program running as the user. The secure desktop
+  is what stops software approving its own elevation prompts.
+- The helper now **reads** `EnableLUA` and `PromptOnSecureDesktop` and reports
+  them through `status`, so the agent can tell the user whether a UAC prompt is
+  reachable instead of assuming. Nothing in the plugin ever writes them.
+- **Stale-install detection.** The elevated helper is signed and installed
+  separately, so a plugin update leaves it untouched and elevated sessions can
+  silently run months-old code. The server compares it against the bundled
+  helper and reports a notice through `status`. This immediately caught a stale
+  install on the development machine.
+
 ## 0.1.6 - 2026-09-09
 
 - Initialize against the current host-provided `@oai/sky` API instead of requiring an obsolete bundled client filename.

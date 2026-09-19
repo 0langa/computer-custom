@@ -161,12 +161,24 @@ try {
 
   check("started elevated", start?.actual === "elevated", `${start?.requested} -> ${start?.actual}`);
   if (start?.notice) {
-    console.log(`    ${start.notice}`);
+    check("installed helper up to date", false, start.notice);
   }
 
   check("helper integrity", ping.power === "high", `${ping.power} (integrity: ${ping.integrity})`);
   check("uiAccess granted", ping.uiAccess === true, String(ping.uiAccess));
   check("secure desktop clear", ping.secureDesktopActive === false, String(ping.secureDesktopActive));
+
+  // Not a pass/fail: it is the machine's configuration, and both values are
+  // legitimate. It decides whether a UAC prompt can be reached at all.
+  check(
+    "UAC prompts on secure desktop",
+    null,
+    ping.uacPromptOnSecureDesktop === undefined
+      ? "unknown (installed helper predates this check)"
+      : ping.uacPromptOnSecureDesktop
+        ? "yes — UAC prompts are unreachable by anything"
+        : "NO — UAC prompts appear on the ordinary desktop and can be clicked",
+  );
 
   const windows = (await helper.call("list_windows")).result;
   // Our own helper is elevated too. Focusing your own window proves nothing

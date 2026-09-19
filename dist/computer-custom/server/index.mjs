@@ -37107,6 +37107,20 @@ function toHelperClientError(error62) {
 // build/server/helper-process.mjs
 var CONNECT_ATTEMPTS = 60;
 var CONNECT_RETRY_MS = 50;
+function stalenessNotice(installed) {
+  try {
+    const bundled = bundledHelperPath();
+    if (!bundled || !fs4.existsSync(bundled)) {
+      return void 0;
+    }
+    if (fs4.statSync(bundled).mtimeMs <= fs4.statSync(installed).mtimeMs) {
+      return void 0;
+    }
+    return "The installed elevated helper is older than the one shipped with this plugin, so elevated sessions are running outdated code. Re-run scripts/install-elevated-helper.ps1 from an elevated PowerShell to update it.";
+  } catch {
+    return void 0;
+  }
+}
 function installedHelperPath() {
   const programFiles = process.env.ProgramFiles ?? "C:Program Files";
   return path4.join(programFiles, "Computer Custom", "computer-custom-helper.exe");
@@ -37233,7 +37247,12 @@ var HelperProcess = class {
     try {
       const client = await this.#connect(pipePath, token);
       this.#client = client;
-      this.#startInfo = { requested: "elevated", actual: "elevated" };
+      const stale = stalenessNotice(installed);
+      this.#startInfo = {
+        requested: "elevated",
+        actual: "elevated",
+        ...stale ? { notice: stale } : {}
+      };
       return client;
     } catch (error62) {
       fs4.rmSync(sessionFile, { force: true });
@@ -37256,6 +37275,15 @@ var HelperProcess = class {
     throw lastError instanceof Error ? lastError : new HelperClientError("HELPER_UNAVAILABLE", "Could not reach the helper");
   }
 };
+function bundledHelperPath() {
+  const here = path4.dirname(fileURLToPath2(import.meta.url));
+  const candidates = [
+    path4.resolve(here, "..", "helper", "computer-custom-helper.exe"),
+    path4.resolve(here, "..", "..", "helper", "computer-custom-helper.exe"),
+    path4.resolve(here, "..", "..", "dist", "computer-custom", "helper", "computer-custom-helper.exe")
+  ];
+  return candidates.find((candidate) => fs4.existsSync(candidate));
+}
 function wantsElevated() {
   const value = process.env.COMPUTER_CUSTOM_ELEVATED;
   return value === "1" || value?.toLowerCase() === "true";
@@ -37785,7 +37813,7 @@ function registerTools(context) {
   const passthrough = (op) => async (args) => text((await helper.call(op, args)).result);
   register("status", {
     title: "Status",
-    description: "What this helper can currently reach: privilege level, whether it has UIAccess, whether a Windows security prompt is on screen, the displays, and how the helper was started. Call this first in a session, and again after any UIPI_BLOCKED error. If start.notice is present, read it out to the user.",
+    description: "What this helper can currently reach: privilege level, whether it has UIAccess, whether a Windows security prompt is on screen, the displays, how the helper was started, and the machine's UAC settings. Call this first in a session, and again after any UIPI_BLOCKED error. If start.notice is present, read it out to the user. uacPromptOnSecureDesktop tells you whether UAC prompts are reachable at all: when true they never are, whatever your privilege.",
     inputSchema: {},
     annotations: { readOnlyHint: true }
   }, async () => gated(context, "ping", {}, "Read helper status.", async () => {

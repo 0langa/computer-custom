@@ -37,6 +37,41 @@ export type HelperStartInfo = {
   notice?: string;
 };
 
+/**
+ * Warns when the installed elevated helper is older than the one shipped with
+ * this plugin.
+ *
+ * The installed copy is built and signed separately by the install script, so
+ * a plugin update does not touch it. Without this check the elevated path
+ * silently keeps running whatever code was installed months ago, and a fix
+ * appears to have no effect for no visible reason.
+ *
+ * Compares modification times rather than contents: the two binaries differ by
+ * design, because only the installed one carries the uiAccess manifest and a
+ * signature.
+ */
+function stalenessNotice(installed: string): string | undefined {
+  try {
+    const bundled = bundledHelperPath();
+    if (!bundled || !fs.existsSync(bundled)) {
+      return undefined;
+    }
+
+    if (fs.statSync(bundled).mtimeMs <= fs.statSync(installed).mtimeMs) {
+      return undefined;
+    }
+
+    return (
+      "The installed elevated helper is older than the one shipped with this plugin, " +
+      "so elevated sessions are running outdated code. Re-run " +
+      "scripts/install-elevated-helper.ps1 from an elevated PowerShell to update it."
+    );
+  } catch {
+    // A missing or unreadable file is not worth failing a session over.
+    return undefined;
+  }
+}
+
 /** Where scripts/install-elevated-helper.ps1 puts the signed helper. */
 function installedHelperPath(): string {
   const programFiles = process.env.ProgramFiles ?? "C:\Program Files";
@@ -232,7 +267,12 @@ export class HelperProcess {
     try {
       const client = await this.#connect(pipePath, token);
       this.#client = client;
-      this.#startInfo = { requested: "elevated", actual: "elevated" };
+      const stale = stalenessNotice(installed);
+      this.#startInfo = {
+        requested: "elevated",
+        actual: "elevated",
+        ...(stale ? { notice: stale } : {}),
+      };
       return client;
     } catch (error) {
       fs.rmSync(sessionFile, { force: true });
@@ -259,6 +299,26 @@ export class HelperProcess {
       ? lastError
       : new HelperClientError("HELPER_UNAVAILABLE", "Could not reach the helper");
   }
+}
+
+/** The non-uiAccess helper that ships with the plugin, if it can be found. */
+function bundledHelperPath(): string | undefined {
+  const here = path.dirname(fileURLToPath(import.meta.url));
+  const candidates = [
+    path.resolve(here, "..", "helper", "computer-custom-helper.exe"),
+    path.resolve(here, "..", "..", "helper", "computer-custom-helper.exe"),
+    path.resolve(
+      here,
+      "..",
+      "..",
+      "dist",
+      "computer-custom",
+      "helper",
+      "computer-custom-helper.exe",
+    ),
+  ];
+
+  return candidates.find((candidate) => fs.existsSync(candidate));
 }
 
 /** Elevated mode is opt-in; see the session-file note above for why. */

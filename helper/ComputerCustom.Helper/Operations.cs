@@ -56,6 +56,10 @@ internal static class Operations
             integrity,
             uiAccess = TokenInfo.SelfHasUiAccess(),
             secureDesktopActive = DesktopGuard.IsSecureDesktopActive(),
+            // Reported so the agent can tell the user what is actually true
+            // about UAC prompts on this machine, rather than assuming.
+            uacEnabled = UacSettings.UacEnabled,
+            uacPromptOnSecureDesktop = UacSettings.PromptOnSecureDesktop,
             displays = DisplayInfo.All(),
         };
     }

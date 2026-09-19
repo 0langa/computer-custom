@@ -155,17 +155,53 @@ happened and how to fix it.
 Your client is never elevated. Only the helper is, which is the point of keeping
 them in separate processes.
 
+## The UAC prompt, and the one setting that changes it
+
+By default Windows draws the UAC consent prompt on the **secure desktop**: a
+separate desktop object no application can reach. That is why nothing can
+automate a UAC prompt, at any privilege, signed or not.
+
+Check what your machine actually does. This needs no admin rights and changes
+nothing:
+
+```powershell
+.\scripts\uac-secure-desktop.ps1
+```
+
+`status` reports the same thing as `uacPromptOnSecureDesktop`, so the agent can
+tell you the truth rather than guessing.
+
+Turning the secure desktop off moves those prompts onto the ordinary desktop,
+where the elevated helper can click them:
+
+```powershell
+.\scripts\uac-secure-desktop.ps1 -Disable -Minutes 20 -IUnderstand
+```
+
+**Understand what that costs.** It does not grant the capability to this
+plugin. It grants it to *everything* running on the machine. The secure desktop
+exists precisely so software cannot approve its own elevation prompts; with it
+off, the gap between "runs as me" and "runs as administrator" is a click any
+process can make. That is a real reduction in your machine's security.
+
+Which is why the plugin never changes it, the script refuses without
+`-IUnderstand`, and `-Minutes` schedules the restore so a forgotten setting
+cannot leave you exposed. Put it back at any time with `-Enable`.
+
 ## Capability boundaries
 
 Honest limits, enforced by Windows rather than by this plugin:
 
 - The helper drives windows at its own privilege level or below. Elevated
   windows return `UIPI_BLOCKED` until the elevated helper above is installed.
-- **The UAC consent prompt cannot be automated by anything**, at any privilege,
-  signed or not. It is system integrity, on the secure desktop. Signing and
-  `uiAccess` do not change this — they reach elevated *application* windows, not
-  system UI. Calls during a prompt return `SECURE_DESKTOP`, and you answer it by
-  hand. Anything claiming otherwise is wrong.
+- **While the secure desktop is on, the UAC consent prompt cannot be automated
+  by anything**, at any privilege, signed or not. Signing and `uiAccess` do not
+  change this — they reach elevated *application* windows, not system UI. Calls
+  during a prompt return `SECURE_DESKTOP`. Only the setting above changes that,
+  and it is yours to change, not the plugin's.
+- After a plugin update the installed elevated helper is still the old one: it
+  is signed separately and nothing touches it automatically. `status` says so,
+  rather than letting elevated sessions quietly run stale code.
 
 ## Development
 

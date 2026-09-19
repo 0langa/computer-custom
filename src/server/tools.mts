@@ -283,7 +283,7 @@ export function registerTools(context: ToolContext): ToolInvoker {
     {
       title: "Status",
       description:
-        "What this helper can currently reach: privilege level, whether it has UIAccess, whether a Windows security prompt is on screen, the displays, and how the helper was started. Call this first in a session, and again after any UIPI_BLOCKED error. If start.notice is present, read it out to the user.",
+        "What this helper can currently reach: privilege level, whether it has UIAccess, whether a Windows security prompt is on screen, the displays, how the helper was started, and the machine's UAC settings. Call this first in a session, and again after any UIPI_BLOCKED error. If start.notice is present, read it out to the user. uacPromptOnSecureDesktop tells you whether UAC prompts are reachable at all: when true they never are, whatever your privilege.",
       inputSchema: {},
       annotations: { readOnlyHint: true },
     },

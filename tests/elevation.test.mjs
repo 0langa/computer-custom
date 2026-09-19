@@ -112,6 +112,40 @@ describe("helper start mode", { skip: !fs.existsSync(HELPER) && "helper not buil
     assert.equal(fs.existsSync(sessionFile), false);
   });
 
+  it("warns when the installed elevated helper is older than the bundled one", async () => {
+    // The installed copy is signed separately and a plugin update does not
+    // touch it, so elevated sessions can silently run months-old code. This
+    // caught a genuinely stale install on a real machine.
+    const fakeProgramFiles = fs.mkdtempSync(path.join(os.tmpdir(), "cc-stale-"));
+    const installDir = path.join(fakeProgramFiles, "Computer Custom");
+    fs.mkdirSync(installDir, { recursive: true });
+
+    // The whole directory, not just the .exe: a .NET apphost will not start
+    // without its .dll and .runtimeconfig.json beside it.
+    for (const entry of fs.readdirSync(path.dirname(HELPER))) {
+      fs.copyFileSync(path.join(path.dirname(HELPER), entry), path.join(installDir, entry));
+    }
+
+    const installedCopy = path.join(installDir, "computer-custom-helper.exe");
+    // Backdate it so the bundled helper is unambiguously newer.
+    const old = new Date(Date.now() - 86_400_000);
+    fs.utimesSync(installedCopy, old, old);
+
+    process.env.ProgramFiles = fakeProgramFiles;
+    process.env.COMPUTER_CUSTOM_ELEVATED = "1";
+    const helper = track(new HelperProcess());
+
+    await helper.call("ping");
+
+    assert.equal(helper.startInfo.actual, "elevated");
+    assert.match(helper.startInfo.notice, /older than the one shipped/);
+    assert.match(helper.startInfo.notice, /install-elevated-helper\.ps1/);
+
+    // The helper still holds its own executable open, so it has to go first.
+    helper.stop();
+    fs.rmSync(fakeProgramFiles, { force: true, recursive: true, maxRetries: 10, retryDelay: 100 });
+  });
+
   it("clears start information when stopped", async () => {
     delete process.env.COMPUTER_CUSTOM_ELEVATED;
     const helper = track(new HelperProcess({ executablePath: HELPER }));
