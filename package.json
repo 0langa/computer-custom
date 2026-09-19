@@ -13,10 +13,18 @@
     "build": "tsc -p tsconfig.json && node scripts/build-dist.mjs",
     "test": "npm run build && node --test tests/*.test.mjs",
     "sync:upstream": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/sync-upstream.ps1",
-    "scan:public": "node scripts/check-public-safety.mjs"
+    "scan:public": "node scripts/check-public-safety.mjs",
+    "publish:helper": "dotnet publish helper/ComputerCustom.Helper -c Release -o dist/computer-custom/helper --nologo -v q",
+    "package": "npm run build && npm run publish:helper",
+    "verify:elevation": "npm run build && node scripts/verify-elevation.mjs"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",
+    "esbuild": "^0.28.2",
     "typescript": "^5.8.0"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "zod": "^4.6.5"
   }
 }

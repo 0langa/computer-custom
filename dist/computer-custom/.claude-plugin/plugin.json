@@ -1,7 +1,7 @@
 {
   "name": "computer-custom",
   "version": "0.1.6",
-  "description": "Policy-controlled guard for Claude Code's Computer Use tools.",
+  "description": "Self-contained Windows computer control with policy gates. No other runtime required.",
   "author": {
     "name": "0langa",
     "email": "plugins@0langa.dev",
@@ -18,5 +18,5 @@
     "claude-code"
   ],
   "skills": "./skills/",
-  "hooks": "./hooks/claude-hooks.json"
+  "mcpServers": "./.mcp.json"
 }

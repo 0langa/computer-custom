@@ -2,14 +2,35 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 const READ_ONLY_METHODS = new Set([
+    // legacy sky method names
     "documentation",
     "get_window",
     "get_window_state",
     "list_apps",
     "list_windows",
     "screenshot",
+    // self-contained MCP tool names (see docs/PROTOCOL.md)
+    "ping",
+    "ui_tree",
+    "cursor_position",
+    "clipboard_get",
+    "fs_read",
+    "list_flows",
 ]);
-const PROTECTED_ROOT_INPUT_METHODS = new Set(["set_value", "type_text"]);
+/**
+ * Methods whose arguments are checked against `protectedRoots`.
+ *
+ * Only methods that can carry a filesystem path worth guarding belong here.
+ * Checking every method would block ordinary clicks whose surrounding payload
+ * happens to mention a protected directory.
+ */
+const PROTECTED_ROOT_INPUT_METHODS = new Set([
+    "set_value",
+    "type_text",
+    "fs_write",
+    "fs_delete",
+    "run_shell",
+]);
 export function loadPolicy(policyPath) {
     const raw = fs.readFileSync(policyPath, "utf8");
     return JSON.parse(raw);
@@ -47,6 +68,15 @@ export function classifySkyCall(method, args, policy, environment = readPolicyEn
             matches: hardBlockMatches,
         };
     }
+    if (policy.confirm.alwaysConfirmMethods?.includes(method)) {
+        return {
+            action: "confirm",
+            reason: "Method always requires confirmation",
+            risk: "irreversible",
+            phrase: policy.confirm.phrase,
+            matches: [method],
+        };
+    }
     const confirmMatches = [
         ...matchPatterns(normalizedPayload, policy.confirm.appPatterns),
         ...matchPatterns(normalizedPayload, policy.confirm.textPatterns),
@@ -65,6 +95,18 @@ export function classifySkyCall(method, args, policy, environment = readPolicyEn
         action: "allow",
         reason: "No policy gate matched",
     };
+}
+/**
+ * Classify an MCP tool call from the self-contained server.
+ *
+ * Same gates as {@link classifySkyCall}; the only difference is the call shape.
+ * Sky methods take positional arguments, MCP tools take one named-argument
+ * object. Both are normalised to the same JSON payload before matching, so a
+ * pattern written for one form keeps working for the other and a single policy
+ * file governs both providers.
+ */
+export function classifyToolCall(tool, args, policy, environment) {
+    return classifySkyCall(tool, [args], policy, environment);
 }
 export function redactForAudit(value, policy) {
     return redactUnknown(value, policy, new WeakSet());

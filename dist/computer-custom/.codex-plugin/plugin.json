@@ -1,7 +1,7 @@
 {
   "name": "computer-custom",
   "version": "0.1.6",
-  "description": "Policy-controlled Windows Computer Use wrapper for technical Codex users.",
+  "description": "Self-contained Windows computer control with policy gates. No other runtime required.",
   "author": {
     "name": "0langa",
     "email": "plugins@0langa.dev",
@@ -21,7 +21,7 @@
   "interface": {
     "displayName": "Computer Custom",
     "shortDescription": "Policy-controlled Windows app automation.",
-    "longDescription": "Computer Custom wraps the locally installed OpenAI Computer Use runtime with configurable policy gates, exact-phrase confirmations, and redacted audit entries.",
+    "longDescription": "Computer Custom drives Windows directly through its own MCP server and native helper: screen, mouse, keyboard, windows and the accessibility tree, behind configurable policy gates, confirmations and a redacted audit trail. It does not require any provider's bundled computer-use runtime.",
     "developerName": "0langa",
     "category": "Developer Tools",
     "capabilities": [

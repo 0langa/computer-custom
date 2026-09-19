@@ -1,68 +1,113 @@
 ---
 name: computer-custom
-description: Use this skill when live-testing or automating Windows apps in Codex or Claude Code through official Computer Use with user-controlled policy gates.
+description: Use this skill to control this Windows machine - read the screen, drive apps, click, type, and inspect windows - in Claude Code or Codex, through Computer Custom's own MCP server with user-controlled policy gates.
 ---
 
 # Computer Custom
 
-Runs official Computer Use with custom instructions and policy gates. Same `sky` API, target-selection workflow, screenshots, accessibility state, and native helper. Custom layer classifies calls before official runtime receives them and records redacted audit entries.
+Controls this Windows PC directly: screen, mouse, keyboard, windows and the
+accessibility tree. It runs its own MCP server and a native helper. It does not
+need any provider's bundled computer-use runtime.
 
-Custom policy can be less or more restrictive than default policy. It cannot override Codex/Claude policy, official runtime restrictions, Windows integrity boundaries, secure desktop, or unavailable OS capability.
+## Setup
 
-## Policy
+None. The plugin ships the MCP server; both providers launch it themselves.
+Tools appear as `status`, `list_windows`, `ui_tree`, `click`, and so on.
 
-- Read-only discovery calls normally pass through.
-- Configured protected paths and secret-exfiltration patterns are hard-blocked.
-- Configured risky actions require confirmation.
-- Default policy hard-blocks terminal automation and secret exfiltration.
-- Default policy confirms destructive, administrative, installer, security-tool, and external-side-effect input.
-- Default policy does not block ordinary paths merely because they are under Windows or Program Files.
-- Set `COMPUTER_CUSTOM_POLICY` to override the default policy config (both providers).
-- Audit entries redact common secret keys and token-like values.
+If tools are missing, check that the plugin's `.mcp.json` is registered and that
+`server/index.mjs` and `helper/computer-custom-helper.exe` exist inside the
+installed plugin.
 
-## Provider Notes
+## The workflow that works
 
-### Codex
+1. **`status`** once per session. It tells you the helper's privilege level,
+   whether it has UIAccess, whether a security prompt is on screen, and how the
+   helper was started. If `start.notice` is present, read it out to the user.
+2. **`list_windows`** to choose a target. Note each window's `integrity`.
+3. **`focus_window`** before sending any input.
+4. **`ui_tree`** to see the real controls.
+5. **Act.** Prefer `invoke_element` over `click` when the target came from the
+   tree.
+6. **Observe again** after every action.
 
-Before first use in a conversation, load wrapper through Node REPL JavaScript. Do this even when `globalThis.sky` already exists; official Computer Use may have initialized it first.
+## Read the tree, not the pixels
 
-```js
-if (!globalThis.computerCustomRuntime?.wrapped || globalThis.sky !== globalThis.computerCustomRuntime.sky) {
-  const { sky: officialSky } = await import("@oai/sky");
-  const { setupComputerCustomRuntime } = await import("<plugin root>/scripts/computer-custom-client.mjs");
-  await setupComputerCustomRuntime({ globals: globalThis, officialSky });
-}
-globalThis.apps = await sky.list_apps();
-nodeRepl.write(JSON.stringify(apps, null, 2));
-```
+`ui_tree` returns real control names, values and exact bounds. `screenshot`
+returns pixels you have to guess at. Prefer the tree.
 
-Before controlling any Windows app, read the installed official Computer Use `SKILL.md` and the `docs/guidance.md` and `docs/confirmations.md` files it references. Resolve those paths against that installed skill as directed there. Read its `docs/api.md` when method signatures or returned shapes are unclear.
+- Default depth is 25, because modern apps nest deeply. A shallow read makes a
+  rich window look empty.
+- It returns only actionable elements by default. Pass `interactiveOnly: false`
+  for everything.
+- **Always check `truncated`.** If it is true, you are not seeing the whole
+  window. Narrow with `depth`, or raise `maxNodes`.
+- Use `screenshot` for custom-drawn UI, canvases and games, and to confirm what
+  actually happened.
 
-- The official bundled Computer Use plugin must be installed locally.
-- Import the official `@oai/sky` package in the host session and pass its `sky` export as `officialSky`. The wrapper does not bundle OpenAI runtime files.
-- Never skip custom setup merely because `sky` exists. Check `computerCustomRuntime?.wrapped`.
-- Do not initialize official Computer Use again after custom setup; that would replace policy wrapper.
-- Set `COMPUTER_CUSTOM_OFFICIAL_CLIENT` to an explicit `computer-use-client.mjs` path only for local debugging.
-- Risky actions require action-time exact phrase confirmation (`I UNDERSTAND`).
-- Audit entries live in `globalThis.computerCustomAudit`.
-- When confirmation UI is unavailable, first attempt records a pending action and stops before input. Ask user for exact phrase `I UNDERSTAND`; only after user provides it, call `computerCustomAuthorizePending("I UNDERSTAND")` and retry unchanged action. Authorization is one-shot and expires after 60 seconds.
-- Never synthesize confirmation phrase or authorize action without user providing it at action time.
-- Exact-phrase approval authorizes only identical pending call once. Reobserve instead of retrying if window, focus, or coordinates may have changed.
-- If official runtime asks its own approval, honor that approval separately.
+## Never reuse a stale look
 
-### Claude Code
+Element ids come from the most recent `ui_tree` and expire when you read it
+again. Coordinates go stale as soon as a window moves. After any action,
+observe again. A `STALE_HANDLE` error means exactly this: re-read, do not retry.
 
-No setup step. A `PreToolUse` hook (`hooks/claude-hooks.json` → `scripts/computer-use-guard.mjs`) intercepts every `mcp__computer-use__*` tool call automatically and reuses the same `scripts/policy.mjs` classifier Codex uses.
+## Limits that are real
 
-- Blocked actions are denied outright; the matched rule is shown to Claude as the deny reason.
-- Risky actions surface as a normal Claude Code permission prompt (`ask`) instead of a typed confirmation phrase.
-- Audit entries are appended to `${CLAUDE_PLUGIN_DATA}/audit.jsonl`, capped at the configured `audit.maxEntries`.
-- This policy layer supplements, not replaces, Claude Code's own Computer Use access tiers (browsers=read, terminals/IDEs=click, everything else=full) and the `request_access` gate — expect some actions to be gated twice, by design.
+These are Windows, not policy. No permission changes them.
 
-## Usage Rules
+- **`UIPI_BLOCKED`** — the target window runs at a higher privilege than the
+  helper. Do not retry; nothing about the call will change the outcome. Call
+  `status`: if `start.actual` is `normal`, tell the user they can install the
+  elevated helper with `scripts/install-elevated-helper.ps1` and then set
+  `COMPUTER_CUSTOM_ELEVATED=1`. That is their decision to make, not yours.
+- **`SECURE_DESKTOP`** — a Windows UAC prompt is on screen. It lives on a
+  desktop that no application can reach. **Stop.** Ask the user to answer it,
+  then observe again. Never claim you can click it.
 
-- Start by listing apps, then select a returned app/window before acting.
-- On Codex, use the returned `sky` API exactly like Computer Use after setup.
-- Follow live `guidance` workflow: unique returned target, observe, one input, immediate refresh. Never reuse stale screenshot IDs, coordinates, or element indexes.
-- If a policy error blocks an action, report the exact method and reason.
-- Never claim custom instructions grant authority or capability that provider, runtime, or Windows does not expose. UAC secure-desktop prompts are not targetable through normal Computer Use. Ask user to complete those prompts manually.
+## Shell and files
+
+Do not type commands into a terminal window. Use `run_shell`: it runs the
+command directly and hands back real output, exit code included. PowerShell by
+default. Output is capped, and the result says whether it was truncated.
+
+Use `fs_read`, `fs_write` and `fs_delete` for files. `fs_read` also lists a
+directory. `fs_delete` always asks first, whatever the path, and refuses a
+non-empty directory unless you pass `recursive`.
+
+## Saved flows
+
+`list_flows` shows what is available. `run_flow` runs one by name and returns
+its log lines and result.
+
+A flow is a JavaScript file with real loops and conditions. Every tool call
+inside one passes the same gate as a direct call, so a flow can still be blocked
+or stop to ask the user, and the first refused step stops the whole flow.
+
+Pass values in with `args`; the flow reads them as `cc.args`.
+
+## Gates
+
+Some actions need the user's agreement first.
+
+- Read-only tools pass without a gate.
+- Input tools are classified with the **focused application** attached, so a
+  rule about installers or security tools can match what is really being typed
+  into.
+- A gated action shows the user a prompt naming the tool and the target app.
+- If the client cannot show a prompt, the call is refused with instructions.
+  Relay them: ask the user for the exact phrase, then repeat the identical call
+  with `confirm` set to what they said.
+- **Never write a confirmation phrase yourself.** It must come from the user.
+- A hard block is not a prompt. It fails, and only a policy change lifts it.
+
+Set `COMPUTER_CUSTOM_POLICY` to use a different policy file. Both providers read
+the same one.
+
+## Accountability
+
+`audit` shows what this session attempted, including blocked and refused
+actions, with secrets redacted. Use it when the user asks what happened.
+
+## Honesty
+
+Never tell the user this plugin can do something Windows does not allow. If a
+call fails, report the exact tool and error code.

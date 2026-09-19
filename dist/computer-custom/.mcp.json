@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "computer-custom": {
+      "command": "node",
+      "args": [
+        "${CLAUDE_PLUGIN_ROOT}/server/index.mjs"
+      ],
+      "env": {
+        "COMPUTER_CUSTOM_POLICY": "${CLAUDE_PLUGIN_ROOT}/config/default-policy.json",
+        "COMPUTER_CUSTOM_HELPER": "${CLAUDE_PLUGIN_ROOT}/helper/computer-custom-helper.exe",
+        "COMPUTER_CUSTOM_FLOWS": "${CLAUDE_PLUGIN_ROOT}/flows"
+      }
+    }
+  }
+}
