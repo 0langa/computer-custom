@@ -17,19 +17,23 @@ afterEach(() => {
 });
 
 describe("Computer Custom runtime", () => {
-  it("keeps skill bootstrap independent of preexisting sky", () => {
+  it("documents the self-contained contract, not a provider runtime", () => {
     const skill = fs.readFileSync(
       path.resolve("overlay", "skills", "computer-custom", "SKILL.md"),
       "utf8",
     );
 
-    assert.match(skill, /computerCustomRuntime\?\.wrapped/);
-    assert.doesNotMatch(skill, /if \(!globalThis\.sky\)/);
-    assert.match(skill, /import\("@oai\/sky"\)/);
-    assert.match(skill, /officialSky/);
-    assert.match(skill, /docs\/guidance\.md/);
-    assert.match(skill, /docs\/confirmations\.md/);
-    assert.doesNotMatch(skill, /sky\.documentation\(/);
+    // The whole point of the rebuild: no dependency on a bundled runtime.
+    assert.doesNotMatch(skill, /@oai\/sky/);
+    assert.doesNotMatch(skill, /officialSky/);
+    assert.doesNotMatch(skill, /globalThis\.sky/);
+
+    // The guidance an agent actually needs to use this correctly.
+    assert.match(skill, /ui_tree/);
+    assert.match(skill, /truncated/);
+    assert.match(skill, /UIPI_BLOCKED/);
+    assert.match(skill, /SECURE_DESKTOP/);
+    assert.match(skill, /Never write a confirmation phrase yourself/i);
   });
 
   it("wraps the package-exported sky without a legacy client file", async () => {

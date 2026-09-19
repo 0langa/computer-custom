@@ -1,61 +1,195 @@
 # Computer Custom
 
-Computer Custom runs official Computer Use with custom skill instructions and configurable policy gates. It keeps official bundled runtime files out of this repository.
+Windows computer control for Claude Code and Codex, with policy gates you own.
 
-## What Is Included
+It ships its own MCP server and a native helper. It does **not** need any
+provider's bundled computer-use runtime, and it talks to nothing but this
+machine.
 
-- TypeScript policy wrapper for Codex `sky` calls.
-- Claude Code `PreToolUse` guard using same policy classifier.
-- Public-safe multi-provider plugin output under `dist/computer-custom`.
-- Local upstream sync script that stores hashes and an ignored local snapshot.
-- Default policy config for protected paths, hard blocks, confirmations, and redacted audit entries.
+## What it does
 
-## What Is Not Included
+- Reads the screen: screenshots, window list, and the Windows accessibility
+  tree with real control names and bounds.
+- Drives the machine: mouse, keyboard, drag, scroll, clipboard, and direct
+  invocation of accessibility elements.
+- Runs commands and touches files directly: `run_shell` returns real output
+  instead of pixels, and there are proper file read, write and delete tools.
+- Replays saved **flows**: JavaScript files with real loops and conditions, for
+  the sequences you run over and over.
+- Gates what matters: read-only calls pass, risky ones ask, a short list is
+  blocked outright. Every decision is recorded, with secrets redacted.
 
-This repository does not redistribute OpenAI bundled plugin files or assets. The installed Codex environment must already include the official Computer Use plugin.
+## Architecture
 
-## Development
-
-```powershell
-npm install
-npm run sync:upstream
-npm run build
-npm test
-npm run scan:public
+```
+Claude Code ─┐
+             ├─ MCP (stdio) ─► computer-custom server ─ named pipe ─► native helper
+Codex ───────┘                 tools, policy, audit,                  SendInput,
+                               confirmations                          UI Automation,
+                                                                      screen capture
 ```
 
-## Install From Marketplace
+The server makes every decision and never touches the OS. The helper touches
+the OS and never makes a decision. They are separate processes so the helper
+can later run at a higher privilege than the client that started the server.
+
+See [docs/REBUILD-DESIGN.md](docs/REBUILD-DESIGN.md) for the design and
+[docs/PROTOCOL.md](docs/PROTOCOL.md) for the wire contract.
+
+## Install
 
 ```powershell
 codex plugin add computer-custom@0langas-plugins
 ```
 
-Restart Codex after install or update so plugin cache reloads.
+Restart the client after install or update so the plugin cache reloads.
 
-## Codex Confirmation Flow
+For Codex, add the server to `config.toml`:
 
-Read-only inspection passes without confirmation. Destructive, publishing, administrative, installer, and security-tool input requires exact phrase `I UNDERSTAND`. Terminal automation and secret exfiltration remain hard-blocked by default.
+```toml
+[mcp_servers.computer-custom]
+command = "node"
+args = ["<plugin root>/server/index.mjs"]
 
-Current Codex runtime lacks inline elicitation. First risky call stops before input and records pending action. Ask user for exact phrase; after user supplies it, run:
-
-```js
-computerCustomAuthorizePending("I UNDERSTAND")
+[mcp_servers.computer-custom.env]
+COMPUTER_CUSTOM_POLICY = "<plugin root>/config/default-policy.json"
+COMPUTER_CUSTOM_HELPER = "<plugin root>/helper/computer-custom-helper.exe"
 ```
 
-Retry unchanged action within 60 seconds. Authorization works once and cannot approve different action. Never synthesize phrase for user.
+Claude Code picks the server up from the plugin's `.mcp.json` automatically.
 
-Security-setting requests now reach exact confirmation instead of being rejected by custom policy. Provider/runtime restrictions still apply after custom confirmation.
+## Policy
 
-## Runtime Boundary
+Point `COMPUTER_CUSTOM_POLICY` at your own file to change any of this. Both
+providers read the same one.
 
-Computer Custom can change its own instructions and policy. It cannot override host policy, official runtime enforcement, Windows process integrity, or secure desktop. In particular, normal Computer Use cannot target UAC prompts shown on secure desktop; user must complete those prompts manually.
+Defaults:
 
-The skill imports `sky` from the host's `@oai/sky` package and passes it to `setupComputerCustomRuntime` as `officialSky`. Setup also wraps an existing `globals.sky`; an explicit legacy client path remains supported. If official Computer Use initialized or replaced `sky` earlier in a conversation, custom setup must still run. The bootstrap checks both the wrapper marker and the current `sky` identity, and requires reading the installed official skill's guidance and confirmation documents before control.
+- Read-only tools pass with no gate.
+- Input tools are classified together with the **focused application**, so a
+  rule about installers, admin tools or security software can match what is
+  actually being typed into. A click in an ordinary app stays ungated.
+- Irreversible tools gate on their name alone, whatever their arguments say.
+- Terminal access is **not** blocked. Destructive commands confirm; ordinary
+  ones run.
+- Drive formatting and credential exfiltration are hard-blocked. A hard block
+  is not a prompt; only editing the policy lifts it.
+
+Confirmation uses MCP elicitation where the client supports it. Where it does
+not, the call is refused with instructions to get an exact phrase from the
+user. The agent is told never to invent that phrase.
+
+## Flows
+
+A flow is a JavaScript file that exports a default async function. It receives a
+context object with one method per tool, plus `args`, `log` and `sleep`.
+
+```js
+export const description = "Opens the editor and saves a file";
+
+export default async function (cc) {
+  const windows = await cc.list_windows();
+  cc.log(`${windows.length} windows`);
+  await cc.key({ keys: ["ctrl", "s"] });
+  return { saved: true };
+}
+```
+
+Run it with `run_flow`, list them with `list_flows`. Flows live in
+`COMPUTER_CUSTOM_FLOWS`, which defaults to the plugin's own `flows/`. **Point it
+at a directory of your own**, or a plugin update will take your flows with it.
+
+Every tool call inside a flow passes the same policy gate as a direct call, so a
+flow can be blocked or can stop to ask you, and each step lands in the audit.
+
+**The JavaScript itself is not sandboxed.** A flow is your own code running in
+the server process, with everything Node can do, exactly like a script you would
+run yourself. Anyone who can write a file into the flows directory can run code
+as you. Treat that directory like your own scripts folder.
+
+## Driving elevated windows
+
+By default the helper runs at your normal privilege, so windows belonging to
+elevated programs — an installer after it appears, regedit, Task Manager —
+return `UIPI_BLOCKED`.
+
+To reach them, install the elevated helper. Read what it will do first:
+
+```powershell
+.\scripts\install-elevated-helper.ps1 -DryRun
+```
+
+Then, from an elevated PowerShell:
+
+```powershell
+.\scripts\install-elevated-helper.ps1
+```
+
+It creates a **self-signed certificate trusted on this machine only** (no
+certificate authority, no cost), signs a build of the helper whose manifest
+requests `uiAccess`, and installs it into Program Files. Admin rights are needed
+once, for that. Nothing is registered to run in the background.
+
+After that the plugin launches the helper itself through ShellExecute, which is
+the only path that grants UIAccess — `CreateProcess` refuses a `uiAccess` binary
+outright, so a scheduled task cannot do it either. **No UAC prompt appears**;
+granting UIAccess to a signed binary in a protected folder is what the mechanism
+is for.
+
+Turn it on with `COMPUTER_CUSTOM_ELEVATED=1`, then check it:
+
+```bash
+npm run verify:elevation
+```
+
+It checks every prerequisite, starts the helper, and with `--focus` proves the
+point by bringing a real elevated window to the front. Expect `power: high` and
+`uiAccess: true`.
+
+Undo everything with `.\scripts\install-elevated-helper.ps1 -Uninstall`.
+
+If you ask for elevation without installing it, the plugin does **not** fail and
+does **not** pretend: it starts the normal helper and `status` tells you what
+happened and how to fix it.
+
+Your client is never elevated. Only the helper is, which is the point of keeping
+them in separate processes.
+
+## Capability boundaries
+
+Honest limits, enforced by Windows rather than by this plugin:
+
+- The helper drives windows at its own privilege level or below. Elevated
+  windows return `UIPI_BLOCKED` until the elevated helper above is installed.
+- **The UAC consent prompt cannot be automated by anything**, at any privilege,
+  signed or not. It is system integrity, on the secure desktop. Signing and
+  `uiAccess` do not change this — they reach elevated *application* windows, not
+  system UI. Calls during a prompt return `SECURE_DESKTOP`, and you answer it by
+  hand. Anything claiming otherwise is wrong.
+
+## Development
+
+```powershell
+npm install
+npm test
+npm run scan:public
+npm run package
+```
+
+- `npm test` compiles `src/*.mts` and runs the Node test suite.
+- `npm run package` bundles the server and publishes the helper into
+  `dist/computer-custom`.
+- Building the helper needs the .NET SDK: `dotnet build helper/ComputerCustom.Helper`.
+- Do not edit `dist/` by hand.
 
 ## Privacy
 
-Audit entries are local process memory only by default and redact common secret keys and token-like values.
+Nothing leaves this machine. The pipe between server and helper is local, its
+ACL names only the current user, and the helper proves a per-session token
+before the server will talk to it. Audit entries are local and redact common
+secret keys and token-like values.
 
 ## Terms
 
-Use this plugin only for authorized local automation. Provider/runtime restrictions still apply where enforced.
+Use this plugin only for automation you are authorised to perform on machines
+you control. Provider and runtime restrictions still apply where enforced.
