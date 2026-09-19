@@ -176,8 +176,8 @@ try {
     ping.uacPromptOnSecureDesktop === undefined
       ? "unknown (installed helper predates this check)"
       : ping.uacPromptOnSecureDesktop
-        ? "yes — UAC prompts are unreachable by anything"
-        : "NO — UAC prompts appear on the ordinary desktop and can be clicked",
+        ? "yes — the consent prompt is unreachable by anything"
+        : "NO — on the ordinary desktop, so a uiAccess helper can click it",
   );
 
   const windows = (await helper.call("list_windows")).result;
@@ -254,5 +254,9 @@ if (failed.length > 0) {
     );
   }
 }
-console.log("Reminder: the UAC consent prompt itself stays unreachable. That is Windows, not policy.\n");
+console.log(
+  "\nThe consent prompt is reachable only when BOTH are true: this helper has" +
+    "\nuiAccess, and the secure desktop is off. Even then UI Automation cannot read" +
+    "\nit, so it must be clicked by coordinates from a screenshot.\n",
+);
 process.exit(failed.length === 0 ? 0 : 1);

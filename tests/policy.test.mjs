@@ -254,3 +254,46 @@ describe("target application context", () => {
     assert.equal(decision.action, "allow");
   });
 });
+
+describe("UAC consent prompt", () => {
+  // Measured: with the secure desktop off and a signed uiAccess helper, a
+  // coordinate click DOES reach the consent prompt and grants elevation. That
+  // makes approving one an action the agent can take, so it must never be
+  // ungated.
+  it("confirms a click while the consent prompt is focused", () => {
+    const decision = classifyToolCall(
+      "click",
+      {
+        x: 957,
+        y: 960,
+        target: { process: "consent", title: "Benutzerkontensteuerung", integrity: "system" },
+      },
+      policy,
+      {},
+    );
+
+    assert.equal(decision.action, "confirm");
+  });
+
+  it("confirms on the English prompt title too", () => {
+    const decision = classifyToolCall(
+      "click",
+      { x: 1, y: 1, target: { process: "consent.exe", title: "User Account Control", integrity: "system" } },
+      policy,
+      {},
+    );
+
+    assert.equal(decision.action, "confirm");
+  });
+
+  it("confirms a keystroke sent to it", () => {
+    const decision = classifyToolCall(
+      "key",
+      { keys: ["enter"], target: { process: "consent", title: "Benutzerkontensteuerung", integrity: "system" } },
+      policy,
+      {},
+    );
+
+    assert.equal(decision.action, "confirm");
+  });
+});

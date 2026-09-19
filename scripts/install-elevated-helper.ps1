@@ -19,11 +19,16 @@
     through ShellExecute, which is the only launch path that grants UIAccess,
     and no prompt appears.
 
-    WHAT THIS DOES NOT DO
-    It does not make the Windows UAC consent prompt automatable. That prompt is
-    system integrity, on the secure desktop, and no privilege reaches it. This
-    only covers ordinary elevated windows: installers after they appear,
-    regedit, Task Manager.
+    WHAT THIS DOES ON ITS OWN
+    It covers ordinary elevated windows: installers after they appear, regedit,
+    Task Manager. It does NOT by itself make the UAC consent prompt
+    automatable, because that prompt is drawn on the secure desktop where
+    nothing can reach it.
+
+    Combined with uac-secure-desktop.ps1 -Disable, it does: with the prompt on
+    the ordinary desktop, a signed uiAccess helper can click it. That is two
+    deliberate steps, and the second one weakens the machine. Read that script
+    before using it.
 
     EVERYTHING HERE IS REVERSIBLE with -Uninstall.
 

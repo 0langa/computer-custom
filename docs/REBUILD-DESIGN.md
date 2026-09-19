@@ -103,10 +103,11 @@ That box is drawn on the **secure desktop**. This is a separate screen that only
 Windows can touch. No app — not even a high-IL app — can click it with normal
 input. That is the whole point of it, by Microsoft's design.
 
-So there is **no code trick** inside the plugin that clicks it. Anyone who says
-otherwise is wrong. Signing the helper does **not** fix this either — see
-section 6. To let the agent handle it you must change **one Windows setting**, on
-your own machine, and you turn it back when done. Details in section 6.
+So there is **no code trick** inside the plugin that reaches it while the secure
+desktop is on, and signing alone does not change that. Two things together do:
+the signed `uiAccess` helper **and** the secure desktop turned off. That
+combination was measured working — the agent clicked a real consent prompt and
+elevation was granted. Section 6 has the detail, including what it costs.
 
 ### Level 4 — Terminal and files (do it directly, not by typing)
 
@@ -295,7 +296,7 @@ the MCP server that started it is not elevated. Installer windows, regedit, Task
 Manager. It is the correct, accessibility-sanctioned way to do this, and it does
 not require running Claude or Codex as admin.
 
-### Part 2: the limit signing does not remove
+### Part 2: the limit signing does not remove on its own
 
 `uiAccess` lets an app cross **up to elevated (high) app UI**. It does **not**
 reach **system-level** UI. Microsoft states this plainly: none of the uiAccess
@@ -310,6 +311,20 @@ There is a related Windows setting, "allow uiAccess apps to prompt for elevation
 without using the secure desktop". It does **not** help you here — Microsoft
 notes it does not change UAC behaviour **for administrators**, and you are an
 admin on this PC.
+
+**Measured correction.** An earlier draft of this document stopped here and said
+the prompt was unreachable, full stop. That was too strong, and it was tested
+rather than argued:
+
+- `ui_tree` on a consent prompt returns **1 node and no buttons**. The prompt
+  runs at system integrity, and `uiAccess` genuinely does not reach system UI
+  for *reading*. That part of the claim held.
+- A **coordinate click** is a different matter. With the secure desktop off, a
+  click from the signed `uiAccess` helper landed on the consent prompt's
+  affirmative button and the elevation was granted.
+
+So the prompt must be driven **from a screenshot, by coordinates** — never by
+element. And it takes both halves: the signing and the setting.
 
 ### Part 3: so what actually clicks the UAC box
 

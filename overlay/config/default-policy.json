@@ -32,7 +32,9 @@
       "\\bsetup\\b",
       "\\buninstall\\b",
       "\\b(regedit|secpol|gpedit|taskmgr)\\.exe\\b",
-      "\\b(Windows Security|Microsoft Defender|Avira|antivirus|anti-malware|firewall)\\b"
+      "\\b(Windows Security|Microsoft Defender|Avira|antivirus|anti-malware|firewall)\\b",
+      "\\bconsent\\b",
+      "\\b(Benutzerkontensteuerung|User Account Control)\\b"
     ],
     "textPatterns": [
       "\\b(delete|remove|erase|destroy|overwrite|uninstall)\\b",

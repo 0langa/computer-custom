@@ -172,9 +172,12 @@ mistake — treating an unrestricted operation as evidence:
   parent is not mistaken for a genuine elevated start — reporting it as such
   would tell the agent it can reach windows it cannot.
 
-**Still true and unchanged:** the UAC consent prompt cannot be automated. It is
-system integrity on the secure desktop. Signing and `uiAccess` reach elevated
-*application* windows, never system UI.
+**Correction, measured later in Phase 4:** the claim above — repeated
+throughout earlier notes — was too strong. Signing alone does not reach the
+consent prompt, which is correct. But with the secure desktop *also* off, a
+coordinate click from the signed `uiAccess` helper **does** reach it and grants
+elevation. Verified on a real machine. `ui_tree` still cannot read the prompt,
+because it runs at system integrity, so it has to be driven from a screenshot.
 
 ### Phase 4 — the UAC secure-desktop opt-in
 
@@ -196,6 +199,14 @@ system integrity on the secure desktop. Signing and `uiAccess` reach elevated
   silently run months-old code. The server compares it against the bundled
   helper and reports a notice through `status`. This immediately caught a stale
   install on the development machine.
+- **Measured: a UAC consent prompt can be answered, given both halves.** With
+  the secure desktop off and the signed `uiAccess` helper running, a coordinate
+  click on the prompt granted elevation. `ui_tree` returns 1 node and no
+  buttons for it — the prompt is system integrity and `uiAccess` does not reach
+  system UI for reading — so it must be driven from a screenshot.
+- Consequently, `consent` and the prompt's window title were added to the
+  confirmation patterns. Approving an elevation request is now something the
+  agent can do, so it must never happen without asking. Three tests cover it.
 
 ## 0.1.6 - 2026-09-09
 

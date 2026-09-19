@@ -38057,8 +38057,12 @@ Workflow that works:
 
 Limits that are real, not policy:
 - Elevated windows need an elevated helper. You will see UIPI_BLOCKED.
-- The Windows UAC prompt cannot be automated at all. On SECURE_DESKTOP, stop
-  and ask the user to answer it.
+- The UAC consent prompt depends on the machine. Check status:
+  - uacPromptOnSecureDesktop true: it is unreachable by anything. On
+    SECURE_DESKTOP, stop and ask the user to answer it.
+  - false, with uiAccess true: input does reach it. ui_tree still cannot read
+    it, so screenshot the prompt and click by coordinates. Answering one always
+    asks you for confirmation first, and that is deliberate.
 
 Some actions are gated. When one is, relay the request to the user and use the
 phrase they give you. Never invent a confirmation phrase.`;

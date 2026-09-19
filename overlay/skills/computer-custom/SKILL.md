@@ -59,9 +59,18 @@ These are Windows, not policy. No permission changes them.
   `status`: if `start.actual` is `normal`, tell the user they can install the
   elevated helper with `scripts/install-elevated-helper.ps1` and then set
   `COMPUTER_CUSTOM_ELEVATED=1`. That is their decision to make, not yours.
-- **`SECURE_DESKTOP`** — a Windows UAC prompt is on screen. It lives on a
-  desktop that no application can reach. **Stop.** Ask the user to answer it,
-  then observe again. Never claim you can click it.
+- **`SECURE_DESKTOP`** — a Windows UAC prompt is on screen and Windows is
+  drawing it where nothing can reach it. **Stop.** Ask the user to answer it,
+  then observe again.
+
+Whether a consent prompt is reachable at all depends on the machine, so check
+`status` rather than assuming either way:
+
+- `uacPromptOnSecureDesktop: true` — unreachable by anything, at any privilege.
+- `uacPromptOnSecureDesktop: false` **and** `uiAccess: true` — input does reach
+  it. `ui_tree` still returns nothing useful, because the prompt runs at system
+  integrity, so screenshot it and click by coordinates. Approving a consent
+  prompt always asks the user first; never work around that.
 
 ## Shell and files
 

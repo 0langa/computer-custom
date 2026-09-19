@@ -194,11 +194,16 @@ Honest limits, enforced by Windows rather than by this plugin:
 
 - The helper drives windows at its own privilege level or below. Elevated
   windows return `UIPI_BLOCKED` until the elevated helper above is installed.
-- **While the secure desktop is on, the UAC consent prompt cannot be automated
-  by anything**, at any privilege, signed or not. Signing and `uiAccess` do not
-  change this — they reach elevated *application* windows, not system UI. Calls
-  during a prompt return `SECURE_DESKTOP`. Only the setting above changes that,
-  and it is yours to change, not the plugin's.
+- **While the secure desktop is on**, the UAC consent prompt is unreachable by
+  anything, at any privilege, signed or not. Calls during a prompt return
+  `SECURE_DESKTOP`.
+- **With the secure desktop off and the signed `uiAccess` helper installed,
+  input does reach it.** Measured, not assumed: a coordinate click on the
+  consent prompt granted elevation. Both halves are required — neither the
+  signing nor the setting achieves it alone.
+  `ui_tree` still returns nothing useful for the prompt, because it runs at
+  system integrity, so it has to be driven from a screenshot by coordinates.
+  Answering a consent prompt always requires confirmation first.
 - After a plugin update the installed elevated helper is still the old one: it
   is signed separately and nothing touches it automatically. `status` says so,
   rather than letting elevated sessions quietly run stale code.
