@@ -1,0 +1,65 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!--
+      WinExe: no console window. ShellExecute cannot hide one the way
+      CreateProcess can, so an elevated launch would flash a black window on
+      the user's desktop every time. Redirected stdin still works, which is
+      all the normal-start token handshake needs.
+    -->
+    <OutputType>WinExe</OutputType>
+    <!--
+      Windows-only by design. This process exists to call SendInput, UI
+      Automation and GDI screen capture, none of which are portable.
+    -->
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <AssemblyName>computer-custom-helper</AssemblyName>
+    <RootNamespace>ComputerCustom.Helper</RootNamespace>
+    <InvariantGlobalization>true</InvariantGlobalization>
+
+    <!-- System.Drawing, used for screen capture. -->
+    <UseWindowsForms>true</UseWindowsForms>
+    <!-- System.Windows.Automation, used for the UI tree and element invoke. -->
+    <UseWPF>true</UseWPF>
+
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
+    <!--
+      SYSLIB1054/CA1401: this project uses classic DllImport rather than the
+      LibraryImport source generator. Several of these entry points marshal
+      string buffers in ways the generator does not support, so the interop
+      layer stays consistent instead of being split between two styles.
+    -->
+    <NoWarn>$(NoWarn);SYSLIB1054;CA1401</NoWarn>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <!--
+      No symbols and no debug directory in the shipped binary. The default
+      portable pdb embeds absolute source paths, which put the build machine's
+      user name into a publicly distributed artifact.
+    -->
+    <DebugType>none</DebugType>
+    <DebugSymbols>false</DebugSymbols>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(UiAccess)' == 'true'">
+    <!--
+      Opt-in, set by the elevated install script: dotnet publish -p:UiAccess=true.
+      Kept off by default so a development build never requests a privilege it
+      cannot be granted, which would make it fail to launch.
+    -->
+    <ApplicationManifest>app.uiaccess.manifest</ApplicationManifest>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- UseWindowsForms swaps in the WinForms implicit-using set, which omits
+         System.IO. Restore it globally rather than per file. -->
+    <Using Include="System.IO" />
+  </ItemGroup>
+
+</Project>
