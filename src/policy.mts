@@ -27,7 +27,22 @@ export type PolicyConfig = {
     textPatterns: string[];
   };
   confirm: {
+    /**
+     * Methods that gate only when a pattern below also matches. Used where the
+     * method itself is neutral and the risk lives in the arguments, such as
+     * `click` or `type_text`.
+     */
     riskyMethods: string[];
+    /**
+     * Methods that gate on their name alone, with no pattern needed.
+     *
+     * MCP tool names carry intent in a way the old sky method names did not:
+     * `fs_delete` is irreversible whatever its arguments say. Pattern matching
+     * cannot be relied on here — `\bdelete\b` does not even match inside
+     * `fs_delete`, because `_` is a word character. Optional for backward
+     * compatibility with policy files written before this field existed.
+     */
+    alwaysConfirmMethods?: string[];
     appPatterns: string[];
     textPatterns: string[];
     phrase: string;
@@ -58,15 +73,36 @@ export type PolicyEnvironment = {
 };
 
 const READ_ONLY_METHODS = new Set([
+  // legacy sky method names
   "documentation",
   "get_window",
   "get_window_state",
   "list_apps",
   "list_windows",
   "screenshot",
+  // self-contained MCP tool names (see docs/PROTOCOL.md)
+  "ping",
+  "ui_tree",
+  "cursor_position",
+  "clipboard_get",
+  "fs_read",
+  "list_flows",
 ]);
 
-const PROTECTED_ROOT_INPUT_METHODS = new Set(["set_value", "type_text"]);
+/**
+ * Methods whose arguments are checked against `protectedRoots`.
+ *
+ * Only methods that can carry a filesystem path worth guarding belong here.
+ * Checking every method would block ordinary clicks whose surrounding payload
+ * happens to mention a protected directory.
+ */
+const PROTECTED_ROOT_INPUT_METHODS = new Set([
+  "set_value",
+  "type_text",
+  "fs_write",
+  "fs_delete",
+  "run_shell",
+]);
 
 export function loadPolicy(policyPath: string): PolicyConfig {
   const raw = fs.readFileSync(policyPath, "utf8");
@@ -117,6 +153,16 @@ export function classifySkyCall(
     };
   }
 
+  if (policy.confirm.alwaysConfirmMethods?.includes(method)) {
+    return {
+      action: "confirm",
+      reason: "Method always requires confirmation",
+      risk: "irreversible",
+      phrase: policy.confirm.phrase,
+      matches: [method],
+    };
+  }
+
   const confirmMatches = [
     ...matchPatterns(normalizedPayload, policy.confirm.appPatterns),
     ...matchPatterns(normalizedPayload, policy.confirm.textPatterns),
@@ -138,6 +184,24 @@ export function classifySkyCall(
     action: "allow",
     reason: "No policy gate matched",
   };
+}
+
+/**
+ * Classify an MCP tool call from the self-contained server.
+ *
+ * Same gates as {@link classifySkyCall}; the only difference is the call shape.
+ * Sky methods take positional arguments, MCP tools take one named-argument
+ * object. Both are normalised to the same JSON payload before matching, so a
+ * pattern written for one form keeps working for the other and a single policy
+ * file governs both providers.
+ */
+export function classifyToolCall(
+  tool: string,
+  args: Record<string, unknown>,
+  policy: PolicyConfig,
+  environment?: PolicyEnvironment,
+): PolicyDecision {
+  return classifySkyCall(tool, [args], policy, environment);
 }
 
 export function redactForAudit(value: unknown, policy: PolicyConfig): unknown {

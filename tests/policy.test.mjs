@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   classifySkyCall,
+  classifyToolCall,
   expandEnvironmentRoot,
   redactForAudit,
 } from "../build/policy.mjs";
@@ -132,5 +133,124 @@ describe("audit redaction", () => {
     );
 
     assert.deepEqual(redacted, [{ text: "value [REDACTED]" }]);
+  });
+});
+
+describe("MCP tool classification", () => {
+  it("allows the new read-only tools without a gate", () => {
+    for (const tool of ["ping", "screenshot", "list_windows", "ui_tree", "fs_read"]) {
+      const decision = classifyToolCall(tool, { handle: 42 }, policy, {});
+      assert.equal(decision.action, "allow", `${tool} should pass`);
+    }
+  });
+
+  it("no longer hard-blocks terminal access", () => {
+    const decision = classifyToolCall(
+      "run_shell",
+      { command: "git status" },
+      policy,
+      {},
+    );
+
+    assert.equal(decision.action, "allow");
+  });
+
+  it("confirms a destructive shell command", () => {
+    const decision = classifyToolCall(
+      "run_shell",
+      { command: "rm -rf ./build" },
+      policy,
+      {},
+    );
+
+    assert.equal(decision.action, "confirm");
+    assert.equal(decision.phrase, "I UNDERSTAND");
+  });
+
+  it("confirms a destructive file tool call", () => {
+    const decision = classifyToolCall(
+      "fs_delete",
+      { path: "D:/scratch/notes.txt" },
+      policy,
+      {},
+    );
+
+    assert.equal(decision.action, "confirm");
+  });
+
+  it("still hard-blocks drive formatting", () => {
+    const decision = classifyToolCall(
+      "run_shell",
+      { command: "format the drive D:" },
+      policy,
+      {},
+    );
+
+    assert.equal(decision.action, "block");
+  });
+
+  it("still hard-blocks secret exfiltration", () => {
+    const decision = classifyToolCall(
+      "type_text",
+      { text: "copy the api_key into the upload form" },
+      policy,
+      {},
+    );
+
+    assert.equal(decision.action, "block");
+  });
+
+  it("agrees with the sky classifier for the same payload", () => {
+    const args = { window: { app: "installer.exe", id: 3 }, x: 1, y: 1 };
+
+    assert.equal(
+      classifyToolCall("click", args, policy, {}).action,
+      classifySkyCall("click", [args], policy, {}).action,
+    );
+  });
+});
+
+describe("target application context", () => {
+  // A click carries only coordinates. The server resolves the focused window
+  // and attaches it, which is the only reason app rules can ever match.
+  it("confirms a click landing in an installer", () => {
+    const decision = classifyToolCall(
+      "click",
+      { x: 100, y: 200, target: { process: "setup", title: "Example Setup", integrity: "medium" } },
+      policy,
+      {},
+    );
+
+    assert.equal(decision.action, "confirm");
+  });
+
+  it("confirms typing into a security tool", () => {
+    const decision = classifyToolCall(
+      "type_text",
+      { text: "hello", target: { process: "SecHealthUI", title: "Windows Security", integrity: "medium" } },
+      policy,
+      {},
+    );
+
+    assert.equal(decision.action, "confirm");
+  });
+
+  it("allows a click in an ordinary application", () => {
+    const decision = classifyToolCall(
+      "click",
+      { x: 100, y: 200, target: { process: "notepad", title: "Untitled - Notepad", integrity: "medium" } },
+      policy,
+      {},
+    );
+
+    assert.equal(decision.action, "allow");
+  });
+
+  it("cannot match an app rule when the target is missing", () => {
+    // Documents the failure this context was added to fix: with no target the
+    // same click is indistinguishable from any other.
+    const decision = classifyToolCall("click", { x: 100, y: 200 }, policy, {});
+
+    assert.equal(decision.action, "allow");
   });
 });

@@ -1,9 +1,7 @@
 {
   "protectedRoots": [],
   "hardBlock": {
-    "appPatterns": [
-      "\\b(cmd|powershell|pwsh|wt)\\.exe\\b"
-    ],
+    "appPatterns": [],
     "textPatterns": [
       "\\b(password|credential|secret|api[_ -]?key|token)\\b.*\\b(copy|send|share|upload|post|paste)\\b",
       "\\b(format)\\b.*\\b(drive|disk|volume)\\b"
@@ -12,10 +10,22 @@
   "confirm": {
     "riskyMethods": [
       "click",
+      "clipboard_set",
+      "drag",
+      "fs_delete",
+      "fs_write",
+      "invoke_element",
+      "key",
       "perform_secondary_action",
       "press_key",
+      "run_flow",
+      "run_shell",
+      "set_element_value",
       "set_value",
       "type_text"
+    ],
+    "alwaysConfirmMethods": [
+      "fs_delete"
     ],
     "appPatterns": [
       "\\binstaller\\b",
@@ -28,7 +38,14 @@
       "\\b(delete|remove|erase|destroy|overwrite|uninstall)\\b",
       "\\b(submit|send|post|publish|share|upload)\\b",
       "\\b(cancel|unsubscribe|purchase|pay|transfer)\\b",
-      "\\b(disable|enable|bypass|change|configure)\\b.*\\b(security|defender|antivirus|firewall|uac)\\b"
+      "\\b(disable|enable|bypass|change|configure)\\b.*\\b(security|defender|antivirus|firewall|uac)\\b",
+      "\\brm\\s+-[a-z]*[rf]",
+      "\\b(del|rmdir|rd)\\s+/",
+      "\\b(diskpart|format|fdisk|mkfs)\\b",
+      "\\breg\\s+(delete|add)\\b",
+      "\\b(shutdown|restart-computer|stop-computer)\\b",
+      "\\bnet\\s+(user|localgroup)\\b",
+      "\\b(takeown|icacls|attrib)\\b"
     ],
     "phrase": "I UNDERSTAND"
   },
