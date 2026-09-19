@@ -1,6 +1,6 @@
 {
   "name": "computer-custom",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Self-contained Windows computer control with policy gates. No other runtime required.",
   "author": {
     "name": "0langa",
@@ -18,6 +18,7 @@
     "codex"
   ],
   "skills": "./skills/",
+  "mcpServers": "./.codex-mcp.json",
   "interface": {
     "displayName": "Computer Custom",
     "shortDescription": "Policy-controlled Windows app automation.",

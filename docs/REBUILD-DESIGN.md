@@ -199,9 +199,10 @@ speak to tools. If our runtime is an MCP server, both clients use the same one.
   (`mcpServers` / `.mcp.json`). The old `PreToolUse` hook can stay as a **second
   gate** (belt and suspenders) or be dropped, because the server now gates
   itself. Recommend: keep it optional, off by default.
-- **Codex**: add the same server to Codex `config.toml` (`[mcp_servers]`).
-  This **removes** the `@oai/sky` import and the "official plugin must be
-  installed" rule. Fully self-contained.
+- **Codex**: the generated `.codex-plugin/plugin.json` points to a
+  plugin-root-relative MCP configuration. Codex starts the same packaged server
+  without a global `config.toml` entry. This **removes** the `@oai/sky` import
+  and the "official plugin must be installed" rule. Fully self-contained.
 
 Result: same tools, same policy, same audit, both clients. One codebase.
 

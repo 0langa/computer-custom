@@ -99,6 +99,7 @@ writeJson(path.join(distRoot, ".codex-plugin", "plugin.json"), {
   license: "MIT",
   keywords: ["computer-use", "windows", "automation", "policy", "codex"],
   skills: "./skills/",
+  mcpServers: "./.codex-mcp.json",
   interface: {
     displayName: "Computer Custom",
     shortDescription: "Policy-controlled Windows app automation.",
@@ -119,6 +120,21 @@ writeJson(path.join(distRoot, ".codex-plugin", "plugin.json"), {
     composerIcon: "./assets/icon.png",
     logo: "./assets/logo.png",
     screenshots: ["./assets/screenshot-1.png"],
+  },
+});
+
+writeJson(path.join(distRoot, ".codex-mcp.json"), {
+  mcpServers: {
+    "computer-custom": {
+      command: "node",
+      args: ["./server/index.mjs"],
+      cwd: "./",
+      env: {
+        COMPUTER_CUSTOM_POLICY: "./config/default-policy.json",
+        COMPUTER_CUSTOM_HELPER: "./helper/computer-custom-helper.exe",
+        COMPUTER_CUSTOM_FLOWS: "./flows",
+      },
+    },
   },
 });
 

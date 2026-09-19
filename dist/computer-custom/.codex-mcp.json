@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "computer-custom": {
+      "command": "node",
+      "args": [
+        "./server/index.mjs"
+      ],
+      "cwd": "./",
+      "env": {
+        "COMPUTER_CUSTOM_POLICY": "./config/default-policy.json",
+        "COMPUTER_CUSTOM_HELPER": "./helper/computer-custom-helper.exe",
+        "COMPUTER_CUSTOM_FLOWS": "./flows"
+      }
+    }
+  }
+}

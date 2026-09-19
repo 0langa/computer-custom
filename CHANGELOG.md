@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.1 — Codex MCP registration
+
+- Added the missing Codex `mcpServers` manifest entry and a Codex-native MCP
+  configuration with plugin-root-relative paths. Codex now starts the bundled
+  server after marketplace installation without a manual `config.toml` block.
+
 ## 0.2.0 — self-contained rebuild
 
 Phase 0 of the rebuild described in `docs/REBUILD-DESIGN.md`. The plugin is

@@ -40,23 +40,13 @@ See [docs/REBUILD-DESIGN.md](docs/REBUILD-DESIGN.md) for the design and
 
 ```powershell
 codex plugin add computer-custom@0langas-plugins
+claude plugin install computer-custom@0langas-plugins
 ```
 
 Restart the client after install or update so the plugin cache reloads.
 
-For Codex, add the server to `config.toml`:
-
-```toml
-[mcp_servers.computer-custom]
-command = "node"
-args = ["<plugin root>/server/index.mjs"]
-
-[mcp_servers.computer-custom.env]
-COMPUTER_CUSTOM_POLICY = "<plugin root>/config/default-policy.json"
-COMPUTER_CUSTOM_HELPER = "<plugin root>/helper/computer-custom-helper.exe"
-```
-
-Claude Code picks the server up from the plugin's `.mcp.json` automatically.
+Both clients start the bundled MCP server from the plugin manifest. No manual
+`config.toml` or global MCP entry is needed.
 
 ## Policy
 
