@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased — self-contained rebuild
+## 0.2.0 — self-contained rebuild
 
 Phase 0 of the rebuild described in `docs/REBUILD-DESIGN.md`. The plugin is
 moving off the OpenAI `@oai/sky` runtime and onto its own MCP server plus a

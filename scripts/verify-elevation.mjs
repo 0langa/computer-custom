@@ -22,6 +22,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { HelperProcess } from "../build/server/helper-process.mjs";
+import { windowsPowerShellEnvironment } from "./windows-powershell.mjs";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const installedExe = path.join(
@@ -43,6 +44,7 @@ function check(name, ok, detail) {
 function powershell(script) {
   return execFileSync("powershell.exe", ["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", script], {
     encoding: "utf8",
+    env: windowsPowerShellEnvironment(),
     windowsHide: true,
   }).trim();
 }
