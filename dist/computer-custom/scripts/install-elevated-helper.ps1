@@ -220,8 +220,32 @@ if (-not $DryRun) {
 # 4. Install into a protected folder.
 Write-Head 'Step 4 of 5: install into Program Files'
 Write-Step "Copy published files to $InstallDir"
+Write-Step 'Record which helper source this was built from'
 if (-not $DryRun) {
     if (-not (Test-Path $InstallDir)) { New-Item -ItemType Directory -Path $InstallDir -Force | Out-Null }
+
+    # The server compares this id with the one shipped in the plugin to tell
+    # whether the elevated helper is really behind. Timestamps cannot answer
+    # that: a reinstall moves them without changing any code.
+    # Best effort. Without an id the server simply says nothing, which is the
+    # correct behaviour for a question it cannot answer.
+    $buildId = $null
+    try {
+        $buildIdScript = Join-Path $scriptRoot 'helper-build-id.mjs'
+        if (Test-Path $buildIdScript) {
+            $buildId = (& node $buildIdScript 2>$null | Out-String).Trim()
+        }
+    }
+    catch { $buildId = $null }
+
+    if ($buildId) {
+        Set-Content -Path (Join-Path $staging 'build-id.txt') -Value $buildId -NoNewline -Encoding ascii
+        Write-Step "Build id $buildId"
+    }
+    else {
+        Write-Step 'Could not compute a build id; the update check will stay quiet'
+    }
+
     Copy-Item -Path (Join-Path $staging '*') -Destination $InstallDir -Recurse -Force
     Remove-Item $staging -Recurse -Force
 }

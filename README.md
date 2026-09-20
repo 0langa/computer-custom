@@ -196,7 +196,9 @@ Honest limits, enforced by Windows rather than by this plugin:
   Answering a consent prompt always requires confirmation first.
 - After a plugin update the installed elevated helper is still the old one: it
   is signed separately and nothing touches it automatically. `status` says so,
-  rather than letting elevated sessions quietly run stale code.
+  rather than letting elevated sessions quietly run stale code. It compares a
+  hash of the helper's source, not file dates — dates were tried first and cried
+  wolf after every reinstall.
 
 ## Development
 
@@ -205,11 +207,17 @@ npm install
 npm test
 npm run scan:public
 npm run package
+npm run verify:packaged
 ```
 
 - `npm test` compiles `src/*.mts` and runs the Node test suite.
 - `npm run package` bundles the server and publishes the helper into
   `dist/computer-custom`.
+- `npm run verify:packaged` drives that package as a real MCP client over stdio
+  from `C:\`, the way Claude Code and Codex do. It is the check that proves the
+  gates refuse: it declines a delete, tries a wrong phrase, then the exact one,
+  and asserts the file survived or went each time. Pass a plugin root to test an
+  installed copy instead.
 - Building the helper needs the .NET SDK: `dotnet build helper/ComputerCustom.Helper`.
 - Do not edit `dist/` by hand.
 

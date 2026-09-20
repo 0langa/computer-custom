@@ -37110,13 +37110,23 @@ var CONNECT_RETRY_MS = 50;
 function stalenessNotice(installed) {
   try {
     const bundled = bundledHelperPath();
-    if (!bundled || !fs4.existsSync(bundled)) {
+    if (!bundled) {
       return void 0;
     }
-    if (fs4.statSync(bundled).mtimeMs <= fs4.statSync(installed).mtimeMs) {
+    const shipped = readBuildId(path4.join(path4.dirname(bundled), "build-id.txt"));
+    const running = readBuildId(path4.join(path4.dirname(installed), "build-id.txt"));
+    if (!shipped || !running || shipped === running) {
       return void 0;
     }
-    return "The installed elevated helper is older than the one shipped with this plugin, so elevated sessions are running outdated code. Re-run scripts/install-elevated-helper.ps1 from an elevated PowerShell to update it.";
+    return "The installed elevated helper was built from different code than the one shipped with this plugin, so elevated sessions may be running outdated code. Re-run scripts/install-elevated-helper.ps1 from an elevated PowerShell to update it.";
+  } catch {
+    return void 0;
+  }
+}
+function readBuildId(file2) {
+  try {
+    const id = fs4.readFileSync(file2, "utf8").trim();
+    return id.length > 0 ? id : void 0;
   } catch {
     return void 0;
   }

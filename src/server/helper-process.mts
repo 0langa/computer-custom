@@ -38,36 +38,55 @@ export type HelperStartInfo = {
 };
 
 /**
- * Warns when the installed elevated helper is older than the one shipped with
- * this plugin.
+ * Warns when the installed elevated helper was built from different source than
+ * the one shipped with this plugin.
  *
  * The installed copy is built and signed separately by the install script, so
  * a plugin update does not touch it. Without this check the elevated path
  * silently keeps running whatever code was installed months ago, and a fix
  * appears to have no effect for no visible reason.
  *
- * Compares modification times rather than contents: the two binaries differ by
- * design, because only the installed one carries the uiAccess manifest and a
- * signature.
+ * Compares a source id, not the binaries and not their timestamps. The two
+ * binaries differ by design, because only the installed one carries the
+ * uiAccess manifest and a signature. Timestamps were tried first and were
+ * wrong: a reinstall or a git checkout moves the bundled file's time forward
+ * without changing a line of helper code. Measured — an installed binary that
+ * was NEWER than the last helper source change was still reported out of date,
+ * every session, telling the user to run an elevated installer for nothing.
+ *
+ * Silent when either id is missing. An unanswerable question must not be
+ * answered with a warning.
  */
 function stalenessNotice(installed: string): string | undefined {
   try {
     const bundled = bundledHelperPath();
-    if (!bundled || !fs.existsSync(bundled)) {
+    if (!bundled) {
       return undefined;
     }
 
-    if (fs.statSync(bundled).mtimeMs <= fs.statSync(installed).mtimeMs) {
+    const shipped = readBuildId(path.join(path.dirname(bundled), "build-id.txt"));
+    const running = readBuildId(path.join(path.dirname(installed), "build-id.txt"));
+    if (!shipped || !running || shipped === running) {
       return undefined;
     }
 
     return (
-      "The installed elevated helper is older than the one shipped with this plugin, " +
-      "so elevated sessions are running outdated code. Re-run " +
-      "scripts/install-elevated-helper.ps1 from an elevated PowerShell to update it."
+      "The installed elevated helper was built from different code than the one " +
+      "shipped with this plugin, so elevated sessions may be running outdated " +
+      "code. Re-run scripts/install-elevated-helper.ps1 from an elevated " +
+      "PowerShell to update it."
     );
   } catch {
     // A missing or unreadable file is not worth failing a session over.
+    return undefined;
+  }
+}
+
+function readBuildId(file: string): string | undefined {
+  try {
+    const id = fs.readFileSync(file, "utf8").trim();
+    return id.length > 0 ? id : undefined;
+  } catch {
     return undefined;
   }
 }

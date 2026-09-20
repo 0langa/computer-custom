@@ -1,6 +1,6 @@
 {
   "name": "computer-custom",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Policy-controlled Windows Computer Use wrapper for Codex and Claude Code.",
   "type": "module",
   "private": false,
@@ -16,7 +16,8 @@
     "scan:public": "node scripts/check-public-safety.mjs",
     "publish:helper": "dotnet publish helper/ComputerCustom.Helper -c Release -o dist/computer-custom/helper --nologo -v q && dotnet publish helper/ComputerCustom.Overlay -c Release -o dist/computer-custom/helper --nologo -v q",
     "package": "npm run build && npm run publish:helper",
-    "verify:elevation": "npm run build && node scripts/verify-elevation.mjs"
+    "verify:elevation": "npm run build && node scripts/verify-elevation.mjs",
+    "verify:packaged": "node scripts/verify-packaged.mjs"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",

@@ -124,10 +124,12 @@ describe("helper start mode", { skip: !fs.existsSync(HELPER) && "helper not buil
     assert.equal(fs.existsSync(sessionFile), false);
   });
 
-  it("warns when the installed elevated helper is older than the bundled one", async () => {
-    // The installed copy is signed separately and a plugin update does not
-    // touch it, so elevated sessions can silently run months-old code. This
-    // caught a genuinely stale install on a real machine.
+  /**
+   * Stands up a fake Program Files install of the helper, optionally with a
+   * build id beside it, and backdates the binary so a timestamp comparison
+   * would call it stale.
+   */
+  function fakeInstall(buildId) {
     const fakeProgramFiles = fs.mkdtempSync(path.join(os.tmpdir(), "cc-stale-"));
     const installDir = path.join(fakeProgramFiles, "Computer Custom");
     fs.mkdirSync(installDir, { recursive: true });
@@ -138,24 +140,87 @@ describe("helper start mode", { skip: !fs.existsSync(HELPER) && "helper not buil
       fs.copyFileSync(path.join(path.dirname(HELPER), entry), path.join(installDir, entry));
     }
 
-    const installedCopy = path.join(installDir, "computer-custom-helper.exe");
-    // Backdate it so the bundled helper is unambiguously newer.
+    if (buildId !== undefined) {
+      fs.writeFileSync(path.join(installDir, "build-id.txt"), buildId, "utf8");
+    }
+
     const old = new Date(Date.now() - 86_400_000);
-    fs.utimesSync(installedCopy, old, old);
+    fs.utimesSync(path.join(installDir, "computer-custom-helper.exe"), old, old);
 
     process.env.ProgramFiles = fakeProgramFiles;
     process.env.COMPUTER_CUSTOM_ELEVATED = "1";
+    return fakeProgramFiles;
+  }
+
+  function discard(helper, dir) {
+    // The helper still holds its own executable open, so it has to go first.
+    helper.stop();
+    fs.rmSync(dir, { force: true, recursive: true, maxRetries: 10, retryDelay: 100 });
+  }
+
+  /** The id the bundled helper was built from, as the server reads it. */
+  function shippedBuildId() {
+    for (const candidate of [
+      path.resolve("build/helper/build-id.txt"),
+      path.resolve("helper/build-id.txt"),
+      path.resolve("dist/computer-custom/helper/build-id.txt"),
+    ]) {
+      if (fs.existsSync(candidate)) {
+        return fs.readFileSync(candidate, "utf8").trim();
+      }
+    }
+    return undefined;
+  }
+
+  it("warns when the installed elevated helper was built from other code", async () => {
+    // The installed copy is signed separately and a plugin update does not
+    // touch it, so elevated sessions can silently run months-old code.
+    const dir = fakeInstall("0000000000000000");
     const helper = track(new HelperProcess());
 
     await helper.call("ping");
 
     assert.equal(helper.startInfo.actual, "elevated");
-    assert.match(helper.startInfo.notice, /older than the one shipped/);
+    assert.match(helper.startInfo.notice, /built from different code/);
     assert.match(helper.startInfo.notice, /install-elevated-helper\.ps1/);
 
-    // The helper still holds its own executable open, so it has to go first.
-    helper.stop();
-    fs.rmSync(fakeProgramFiles, { force: true, recursive: true, maxRetries: 10, retryDelay: 100 });
+    discard(helper, dir);
+  });
+
+  it("stays quiet when the installed helper matches, however old the file is", async (t) => {
+    // The bug this replaced: the check compared modification times, so a
+    // reinstall or a git checkout moved the bundled file forward and the user
+    // was told every session to run an elevated installer for nothing. The
+    // binary here is backdated a full day and must still pass.
+    const shipped = shippedBuildId();
+    if (shipped === undefined) {
+      t.skip("no bundled build id; run npm run build first");
+      return;
+    }
+
+    const dir = fakeInstall(shipped);
+    const helper = track(new HelperProcess());
+
+    await helper.call("ping");
+
+    assert.equal(helper.startInfo.actual, "elevated");
+    assert.equal(helper.startInfo.notice, undefined);
+
+    discard(helper, dir);
+  });
+
+  it("stays quiet when there is no id to compare", async () => {
+    // An install from before build ids existed. A question that cannot be
+    // answered must not be answered with a warning.
+    const dir = fakeInstall(undefined);
+    const helper = track(new HelperProcess());
+
+    await helper.call("ping");
+
+    assert.equal(helper.startInfo.actual, "elevated");
+    assert.equal(helper.startInfo.notice, undefined);
+
+    discard(helper, dir);
   });
 
   it("clears start information when stopped", async () => {

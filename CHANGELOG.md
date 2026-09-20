@@ -1,5 +1,30 @@
 # Changelog
 
+## 0.2.2 — the update check stops crying wolf
+
+- **Fixed a false alarm.** The check for an out-of-date elevated helper compared
+  file modification times, so a plugin reinstall or a git checkout made the
+  bundled file newer without a line of helper code changing, and every elevated
+  session told the user to re-run an elevated installer for nothing. Found by a
+  full test run on a real machine: the installed binary was *newer* than the
+  last change to helper source and was still called stale. The proof was that
+  one release gave two answers — the Claude plugin cache (checked out 20:55) and
+  the Codex one (20:36) hold byte-identical helpers, yet only Claude warned about
+  the same Program Files install (20:49). The verdict depended on install order,
+  not on code.
+  The comparison is now a hash of the helper's source tree
+  (`scripts/helper-build-id.mjs`), written to `helper/build-id.txt` by the build
+  and beside the installed copy by `install-elevated-helper.ps1`. The binaries
+  themselves can never be compared: only the installed one carries the uiAccess
+  manifest and a signature. When either id is missing the check says nothing,
+  because a question it cannot answer must not be answered with a warning.
+- Added `npm run verify:packaged`, which drives the packaged plugin as a real
+  MCP client over stdio from `C:\`, the way Claude Code and Codex do. It checks
+  the tool surface, a read-only call, both hard-block behaviours, and all three
+  confirmation routes — declined, wrong phrase, exact phrase — asserting after
+  each that the target file was left alone or removed as appropriate.
+  The in-process unit tests never watched a gate actually refuse anything.
+
 ## 0.2.1 — Codex MCP registration
 
 - Added the missing Codex `mcpServers` manifest entry and a Codex-native MCP

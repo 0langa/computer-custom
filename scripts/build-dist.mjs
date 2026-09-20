@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import esbuild from "esbuild";
+import { helperBuildId } from "./helper-build-id.mjs";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const distRoot = path.join(repoRoot, "dist", "computer-custom");
@@ -70,6 +71,16 @@ copyFile(
   path.join(repoRoot, "scripts", "install-elevated-helper.ps1"),
   path.join(distRoot, "scripts", "install-elevated-helper.ps1"),
 );
+copyFile(
+  path.join(repoRoot, "scripts", "helper-build-id.mjs"),
+  path.join(distRoot, "scripts", "helper-build-id.mjs"),
+);
+
+// Which helper source this plugin's binary was built from. The installer writes
+// the same file beside the elevated copy, and the server compares the two to
+// tell whether the elevated helper is really behind.
+fs.mkdirSync(path.join(distRoot, "helper"), { recursive: true });
+fs.writeFileSync(path.join(distRoot, "helper", "build-id.txt"), `${helperBuildId()}\n`, "utf8");
 copyFile(
   path.join(repoRoot, "overlay", "claude", "hooks", "claude-hooks.json"),
   path.join(distRoot, "hooks", "claude-hooks.json"),
