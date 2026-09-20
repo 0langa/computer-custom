@@ -281,9 +281,10 @@ else {
 Write-Host "`nDone." -ForegroundColor Green
 Write-Host @"
 
-The plugin will now prefer the elevated helper. To use it, set:
+The plugin will now use the elevated helper. There is nothing to switch on:
+elevation is the default, and every session takes it from here.
 
-  COMPUTER_CUSTOM_ELEVATED=1
+To opt OUT of it for a session, set COMPUTER_CUSTOM_ELEVATED=0.
 
 Verify with:
 

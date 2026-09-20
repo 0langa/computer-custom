@@ -126,7 +126,13 @@ outright, so a scheduled task cannot do it either. **No UAC prompt appears**;
 granting UIAccess to a signed binary in a protected folder is what the mechanism
 is for.
 
-Turn it on with `COMPUTER_CUSTOM_ELEVATED=1`, then check it:
+There is nothing to turn on. **Elevation is the default**, so every session uses
+the elevated helper once it is installed. You call this plugin because you want
+more reach than the ordinary computer-use tools give you; the weaker mode should
+not be the one you get by accident.
+
+Opt **out** for a session with `COMPUTER_CUSTOM_ELEVATED=0`. Check either way
+with:
 
 ```bash
 npm run verify:elevation

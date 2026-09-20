@@ -21,8 +21,9 @@ for input reaching a higher-integrity window.
 the signed helper arrived, text typed by the unsigned one did not. That is UIPI
 actually being crossed.
 
-Set `COMPUTER_CUSTOM_ELEVATED=1` to use it. To re-check, open a window from an
-app that genuinely requires elevation and run:
+It is used by default once installed; opt out with `COMPUTER_CUSTOM_ELEVATED=0`.
+To re-check, open a window from an app that genuinely requires elevation and
+run:
 
 ```powershell
 npm run verify:elevation -- --prove

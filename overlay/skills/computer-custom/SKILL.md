@@ -57,8 +57,9 @@ These are Windows, not policy. No permission changes them.
 - **`UIPI_BLOCKED`** — the target window runs at a higher privilege than the
   helper. Do not retry; nothing about the call will change the outcome. Call
   `status`: if `start.actual` is `normal`, tell the user they can install the
-  elevated helper with `scripts/install-elevated-helper.ps1` and then set
-  `COMPUTER_CUSTOM_ELEVATED=1`. That is their decision to make, not yours.
+  elevated helper with `scripts/install-elevated-helper.ps1`. Once installed it
+  is used automatically; there is no switch to set. That is their decision to
+  make, not yours.
 - **`SECURE_DESKTOP`** — a Windows UAC prompt is on screen and Windows is
   drawing it where nothing can reach it. **Stop.** Ask the user to answer it,
   then observe again.

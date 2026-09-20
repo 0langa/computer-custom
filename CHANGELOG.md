@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.2.3 — stop telling people to switch on what is already on
+
+- **Fixed instructions that were left behind by the opt-out change.** Elevation
+  became the default in 0.2.0, but the installer still finished by saying *"To
+  use it, set `COMPUTER_CUSTOM_ELEVATED=1`"*, and the README, the skill, the
+  protocol notes and `NEXT_STEPS.md` all still described it as opt-in. A user
+  followed that advice and added the variable to their Codex `config.toml`,
+  where it did nothing at all: measured, forcing it to `0` there still produced
+  `power: high, requested: elevated`, and `codex exec --strict-config` rejected
+  the file with `unknown configuration field`. So the stale advice cost real
+  time and left a broken config behind.
+  All five places now say the truth: there is nothing to switch on, and
+  `COMPUTER_CUSTOM_ELEVATED=0` opts out.
+
 ## 0.2.2 — the update check stops crying wolf
 
 - **Fixed a false alarm.** The check for an out-of-date elevated helper compared

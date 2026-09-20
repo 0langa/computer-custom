@@ -85,8 +85,10 @@ writes `%LOCALAPPDATA%\computer-custom\session.json`, and the helper deletes it
 the moment it has been read — including when the read fails.
 
 This is weaker than stdin: for a few milliseconds the token exists in a file,
-readable by anything already running as you. That is the honest reason elevated
-mode is opt-in (`COMPUTER_CUSTOM_ELEVATED=1`) and not the default.
+readable by anything already running as you. That is the cost of elevated mode,
+and the reason the session file is written on the elevated path only. Elevated
+mode is the default (opt out with `COMPUTER_CUSTOM_ELEVATED=0`), so this
+trade-off applies whenever the signed helper is installed.
 
 ### Why ShellExecute, and not anything else
 
