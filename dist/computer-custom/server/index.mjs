@@ -2794,11 +2794,11 @@ var require_validate = __commonJS({
         jsonPointer = $data;
         data = names_1.default.rootData;
       } else {
-        const matches = RELATIVE_JSON_POINTER.exec($data);
-        if (!matches)
+        const matches2 = RELATIVE_JSON_POINTER.exec($data);
+        if (!matches2)
           throw new Error(`Invalid JSON-pointer: ${$data}`);
-        const up = +matches[1];
-        jsonPointer = matches[2];
+        const up = +matches2[1];
+        jsonPointer = matches2[2];
         if (jsonPointer === "#") {
           if (up >= dataLevel)
             throw new Error(errorMsg("property/index", up));
@@ -3262,8 +3262,8 @@ var require_utils = __commonJS({
       }
       return ind;
     }
-    function removeDotSegments(path8) {
-      let input2 = path8;
+    function removeDotSegments(path10) {
+      let input2 = path10;
       const output2 = [];
       let nextSlash = -1;
       let len = 0;
@@ -3672,8 +3672,8 @@ var require_schemes = __commonJS({
       }
       if (wsComponent.resourceName) {
         const queryIndex = wsComponent.resourceName.indexOf("?");
-        const path8 = queryIndex === -1 ? wsComponent.resourceName : wsComponent.resourceName.slice(0, queryIndex);
-        wsComponent.path = path8 && path8 !== "/" ? path8 : void 0;
+        const path10 = queryIndex === -1 ? wsComponent.resourceName : wsComponent.resourceName.slice(0, queryIndex);
+        wsComponent.path = path10 && path10 !== "/" ? path10 : void 0;
         wsComponent.query = queryIndex === -1 ? void 0 : wsComponent.resourceName.slice(queryIndex + 1);
         wsComponent.resourceName = void 0;
       }
@@ -3685,11 +3685,11 @@ var require_schemes = __commonJS({
         urnComponent.error = "URN can not be parsed";
         return urnComponent;
       }
-      const matches = urnComponent.path.match(URN_REG);
-      if (matches && matches[0] === urnComponent.path) {
+      const matches2 = urnComponent.path.match(URN_REG);
+      if (matches2 && matches2[0] === urnComponent.path) {
         const scheme = options.scheme || urnComponent.scheme || "urn";
-        urnComponent.nid = matches[1].toLowerCase();
-        urnComponent.nss = matches[2];
+        urnComponent.nid = matches2[1].toLowerCase();
+        urnComponent.nss = matches2[2];
         const urnScheme = `${scheme}:${options.nid || urnComponent.nid}`;
         const schemeHandler = getSchemeHandler(urnScheme);
         urnComponent.path = void 0;
@@ -4003,8 +4003,8 @@ var require_fast_uri = __commonJS({
     var URI_PARSE = /^(?:([^#/:?]+):)?(?:\/\/((?:([^#/?@]*)@)?(\[[^#/?\]]+\]|[^#/:?]*)(?::(\d*))?))?([^#?]*)(?:\?([^#]*))?(?:#((?:.|[\n\r])*))?/u;
     var AUTHORITY_PREFIX = /^(?:[^#/:?]+:)?\/\/([^/?#]*)/;
     var AUTHORITY_INTRODUCER_REGION = /^(?:[^#/:?]+:)?([/\\\t\n\r]*)/;
-    function getParseError(parsed, matches) {
-      if (matches[2] !== void 0 && parsed.path && parsed.path[0] !== "/") {
+    function getParseError(parsed, matches2) {
+      if (matches2[2] !== void 0 && parsed.path && parsed.path[0] !== "/") {
         return 'URI path must start with "/" when authority is present.';
       }
       if (typeof parsed.port === "number" && (parsed.port < 0 || parsed.port > 65535)) {
@@ -4026,9 +4026,9 @@ var require_fast_uri = __commonJS({
     function isIPLiteral(host) {
       return host[0] === "[" && host[host.length - 1] === "]";
     }
-    function hasMalformedComponentPercentEncoding(matches) {
-      const host = matches[4];
-      return hasMalformedPercentEncoding(matches[3]) || host !== void 0 && !isIPLiteral(host) && hasMalformedPercentEncoding(host) || hasMalformedPercentEncoding(matches[6]) || hasMalformedPercentEncoding(matches[7]) || hasMalformedPercentEncoding(matches[8]);
+    function hasMalformedComponentPercentEncoding(matches2) {
+      const host = matches2[4];
+      return hasMalformedPercentEncoding(matches2[3]) || host !== void 0 && !isIPLiteral(host) && hasMalformedPercentEncoding(host) || hasMalformedPercentEncoding(matches2[6]) || hasMalformedPercentEncoding(matches2[7]) || hasMalformedPercentEncoding(matches2[8]);
     }
     function canonicalizeHost(parsed, options, schemeHandler, isIP) {
       if (!options.unicodeSupport && (!schemeHandler || !schemeHandler.unicodeSupport) && parsed.host && !isIPLiteral(parsed.host) && (options.domainHost || schemeHandler && schemeHandler.domainHost) && isIP === false && nonSimpleDomain(parsed.host)) {
@@ -4085,15 +4085,15 @@ var require_fast_uri = __commonJS({
           }
         }
       }
-      const matches = uri.match(URI_PARSE);
-      if (matches) {
-        parsed.scheme = matches[1];
-        parsed.userinfo = matches[3];
-        parsed.host = matches[4];
-        parsed.port = parseInt(matches[5], 10);
-        parsed.path = matches[6] || "";
-        parsed.query = matches[7];
-        parsed.fragment = matches[8];
+      const matches2 = uri.match(URI_PARSE);
+      if (matches2) {
+        parsed.scheme = matches2[1];
+        parsed.userinfo = matches2[3];
+        parsed.host = matches2[4];
+        parsed.port = parseInt(matches2[5], 10);
+        parsed.path = matches2[6] || "";
+        parsed.query = matches2[7];
+        parsed.fragment = matches2[8];
         if (parsed.scheme !== void 0) {
           const decodedScheme = unescape(parsed.scheme);
           if (VALID_SCHEME.test(decodedScheme)) {
@@ -4103,14 +4103,14 @@ var require_fast_uri = __commonJS({
             malformedScheme = true;
           }
         }
-        malformedPercentEncoding = hasMalformedComponentPercentEncoding(matches);
+        malformedPercentEncoding = hasMalformedComponentPercentEncoding(matches2);
         if (malformedPercentEncoding) {
           parsed.error = parsed.error || "URI contains malformed percent-encoding.";
         }
         if (isNaN(parsed.port)) {
-          parsed.port = matches[5];
+          parsed.port = matches2[5];
         }
-        const parseError = getParseError(parsed, matches);
+        const parseError = getParseError(parsed, matches2);
         if (parseError !== void 0) {
           parsed.error = parsed.error || parseError;
           malformedAuthorityOrPort = true;
@@ -6960,12 +6960,12 @@ var require_formats = __commonJS({
     var DATE = /^(\d\d\d\d)-(\d\d)-(\d\d)$/;
     var DAYS = [0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
     function date5(str) {
-      const matches = DATE.exec(str);
-      if (!matches)
+      const matches2 = DATE.exec(str);
+      if (!matches2)
         return false;
-      const year = +matches[1];
-      const month = +matches[2];
-      const day = +matches[3];
+      const year = +matches2[1];
+      const month = +matches2[2];
+      const day = +matches2[3];
       return month >= 1 && month <= 12 && day >= 1 && day <= (month === 2 && isLeapYear(year) ? 29 : DAYS[month]);
     }
     function compareDate(d1, d2) {
@@ -6980,16 +6980,16 @@ var require_formats = __commonJS({
     var TIME = /^(\d\d):(\d\d):(\d\d(?:\.\d+)?)(z|([+-])(\d\d)(?::?(\d\d))?)?$/i;
     function getTime(strictTimeZone) {
       return function time3(str) {
-        const matches = TIME.exec(str);
-        if (!matches)
+        const matches2 = TIME.exec(str);
+        if (!matches2)
           return false;
-        const hr = +matches[1];
-        const min = +matches[2];
-        const sec = +matches[3];
-        const tz = matches[4];
-        const tzSign = matches[5] === "-" ? -1 : 1;
-        const tzH = +(matches[6] || 0);
-        const tzM = +(matches[7] || 0);
+        const hr = +matches2[1];
+        const min = +matches2[2];
+        const sec = +matches2[3];
+        const tz = matches2[4];
+        const tzSign = matches2[5] === "-" ? -1 : 1;
+        const tzH = +(matches2[6] || 0);
+        const tzM = +(matches2[7] || 0);
         if (tzH > 23 || tzM > 59 || strictTimeZone && !tz)
           return false;
         if (hr <= 23 && min <= 59 && sec < 60)
@@ -7186,12 +7186,12 @@ var require_dist = __commonJS({
         throw new Error(`Unknown format "${name}"`);
       return f;
     };
-    function addFormats(ajv, list, fs8, exportName) {
+    function addFormats(ajv, list, fs9, exportName) {
       var _a3;
       var _b;
       (_a3 = (_b = ajv.opts.code).formats) !== null && _a3 !== void 0 ? _a3 : _b.formats = (0, codegen_1._)`require("ajv-formats/dist/formats").${exportName}`;
       for (const f of list)
-        ajv.addFormat(f, fs8[f]);
+        ajv.addFormat(f, fs9[f]);
     }
     module.exports = exports = formatsPlugin;
     Object.defineProperty(exports, "__esModule", { value: true });
@@ -7573,8 +7573,8 @@ function getErrorMap() {
 
 // node_modules/zod/v3/helpers/parseUtil.js
 var makeIssue = (params) => {
-  const { data, path: path8, errorMaps, issueData } = params;
-  const fullPath = [...path8, ...issueData.path || []];
+  const { data, path: path10, errorMaps, issueData } = params;
+  const fullPath = [...path10, ...issueData.path || []];
   const fullIssue = {
     ...issueData,
     path: fullPath
@@ -7689,11 +7689,11 @@ var errorUtil;
 
 // node_modules/zod/v3/types.js
 var ParseInputLazyPath = class {
-  constructor(parent, value, path8, key) {
+  constructor(parent, value, path10, key) {
     this._cachedPath = [];
     this.parent = parent;
     this.data = value;
-    this._path = path8;
+    this._path = path10;
     this._key = key;
   }
   get path() {
@@ -11647,10 +11647,10 @@ function mergeDefs(...defs) {
 function cloneDef(schema) {
   return mergeDefs(schema._zod.def);
 }
-function getElementAtPath(obj, path8) {
-  if (!path8)
+function getElementAtPath(obj, path10) {
+  if (!path10)
     return obj;
-  return path8.reduce((acc, key) => acc?.[key], obj);
+  return path10.reduce((acc, key) => acc?.[key], obj);
 }
 function promiseAllObject(promisesObj) {
   const keys = Object.keys(promisesObj);
@@ -11990,11 +11990,11 @@ function explicitlyAborted(x, startIndex = 0) {
   }
   return false;
 }
-function prefixIssues(path8, issues) {
+function prefixIssues(path10, issues) {
   return issues.map((iss) => {
     var _a3;
     (_a3 = iss).path ?? (_a3.path = []);
-    iss.path.unshift(path8);
+    iss.path.unshift(path10);
     return iss;
   });
 }
@@ -12444,16 +12444,16 @@ function flattenError(error62, mapper = (issue2) => issue2.message) {
 }
 function formatError(error62, mapper = (issue2) => issue2.message) {
   const fieldErrors = { _errors: [] };
-  const processError = (error63, path8 = []) => {
+  const processError = (error63, path10 = []) => {
     for (const issue2 of error63.issues) {
       if (issue2.code === "invalid_union" && issue2.errors.length) {
-        issue2.errors.map((issues) => processError({ issues }, [...path8, ...issue2.path]));
+        issue2.errors.map((issues) => processError({ issues }, [...path10, ...issue2.path]));
       } else if (issue2.code === "invalid_key") {
-        processError({ issues: issue2.issues }, [...path8, ...issue2.path]);
+        processError({ issues: issue2.issues }, [...path10, ...issue2.path]);
       } else if (issue2.code === "invalid_element") {
-        processError({ issues: issue2.issues }, [...path8, ...issue2.path]);
+        processError({ issues: issue2.issues }, [...path10, ...issue2.path]);
       } else {
-        const fullpath = [...path8, ...issue2.path];
+        const fullpath = [...path10, ...issue2.path];
         if (fullpath.length === 0) {
           fieldErrors._errors.push(mapper(issue2));
         } else {
@@ -12492,17 +12492,17 @@ function formatError(error62, mapper = (issue2) => issue2.message) {
 }
 function treeifyError(error62, mapper = (issue2) => issue2.message) {
   const result = { errors: [] };
-  const processError = (error63, path8 = []) => {
+  const processError = (error63, path10 = []) => {
     var _a3;
     for (const issue2 of error63.issues) {
       if (issue2.code === "invalid_union" && issue2.errors.length) {
-        issue2.errors.map((issues) => processError({ issues }, [...path8, ...issue2.path]));
+        issue2.errors.map((issues) => processError({ issues }, [...path10, ...issue2.path]));
       } else if (issue2.code === "invalid_key") {
-        processError({ issues: issue2.issues }, [...path8, ...issue2.path]);
+        processError({ issues: issue2.issues }, [...path10, ...issue2.path]);
       } else if (issue2.code === "invalid_element") {
-        processError({ issues: issue2.issues }, [...path8, ...issue2.path]);
+        processError({ issues: issue2.issues }, [...path10, ...issue2.path]);
       } else {
-        const fullpath = [...path8, ...issue2.path];
+        const fullpath = [...path10, ...issue2.path];
         if (fullpath.length === 0) {
           result.errors.push(mapper(issue2));
           continue;
@@ -12541,8 +12541,8 @@ function treeifyError(error62, mapper = (issue2) => issue2.message) {
 }
 function toDotPath(_path) {
   const segs = [];
-  const path8 = _path.map((seg) => typeof seg === "object" ? seg.key : seg);
-  for (const seg of path8) {
+  const path10 = _path.map((seg) => typeof seg === "object" ? seg.key : seg);
+  for (const seg of path10) {
     if (typeof seg === "number")
       segs.push(`[${seg}]`);
     else if (typeof seg === "symbol")
@@ -14593,16 +14593,16 @@ var $ZodUnion = /* @__PURE__ */ $constructor("$ZodUnion", (inst, def) => {
   };
 });
 function handleExclusiveUnionResults(results, final, inst, ctx) {
-  const matches = [];
+  const matches2 = [];
   for (let i = 0; i < results.length; i++) {
     if (results[i].issues.length === 0)
-      matches.push(i);
+      matches2.push(i);
   }
-  if (matches.length === 1) {
-    final.value = results[matches[0]].value;
+  if (matches2.length === 1) {
+    final.value = results[matches2[0]].value;
     return final;
   }
-  if (matches.length === 0) {
+  if (matches2.length === 0) {
     final.issues.push({
       code: "invalid_union",
       input: final.value,
@@ -14616,7 +14616,7 @@ function handleExclusiveUnionResults(results, final, inst, ctx) {
       inst,
       errors: [],
       inclusive: false,
-      matches
+      matches: matches2
     });
   }
   return final;
@@ -28057,11 +28057,11 @@ function normalizeObjectSchema(schema) {
   }
   return void 0;
 }
-function getDotPath(path8) {
-  if (path8.length === 0) {
+function getDotPath(path10) {
+  if (path10.length === 0) {
     return "object root";
   }
-  return path8.reduce((acc, seg, index) => {
+  return path10.reduce((acc, seg, index) => {
     if (index === 0) {
       return String(seg);
     }
@@ -30288,13 +30288,13 @@ function resolveRef(ref, ctx) {
   if (!ref.startsWith("#")) {
     throw new Error("External $ref is not supported, only local refs (#/...) are allowed");
   }
-  const path8 = ref.slice(1).split("/").filter(Boolean);
-  if (path8.length === 0) {
+  const path10 = ref.slice(1).split("/").filter(Boolean);
+  if (path10.length === 0) {
     return ctx.rootSchema;
   }
   const defsKey = ctx.version === "draft-2020-12" ? "$defs" : "definitions";
-  if (path8[0] === defsKey) {
-    const key = path8[1] === void 0 ? void 0 : decodeJSONPointerSegment(path8[1]);
+  if (path10[0] === defsKey) {
+    const key = path10[1] === void 0 ? void 0 : decodeJSONPointerSegment(path10[1]);
     if (!key || !ctx.defs[key]) {
       throw new Error(`Reference not found: ${ref}`);
     }
@@ -30459,20 +30459,20 @@ function checkArrayGuards(arraySchema, guards) {
     if (guards.containsSchema) {
       const minContains = guards.minContains ?? 1;
       const ceiling = guards.maxContains !== void 0 ? guards.maxContains + 1 : Number.POSITIVE_INFINITY;
-      let matches = 0;
+      let matches2 = 0;
       for (const item of items) {
-        if (guards.containsSchema.safeParse(item).success && ++matches >= ceiling)
+        if (guards.containsSchema.safeParse(item).success && ++matches2 >= ceiling)
           break;
       }
-      if (matches < minContains) {
+      if (matches2 < minContains) {
         payload.issues.push({
           code: "custom",
-          message: `Array must contain at least ${minContains} matching ${plural(minContains)}; found ${matches}`,
+          message: `Array must contain at least ${minContains} matching ${plural(minContains)}; found ${matches2}`,
           input: items,
           continue: true
         });
       }
-      if (guards.maxContains !== void 0 && matches > guards.maxContains) {
+      if (guards.maxContains !== void 0 && matches2 > guards.maxContains) {
         payload.issues.push({
           code: "custom",
           message: `Array must contain at most ${guards.maxContains} matching ${plural(guards.maxContains)}`,
@@ -36627,14 +36627,14 @@ function normalizeForMatching(value) {
   }).replaceAll("\\\\", "\\").toLowerCase();
 }
 function matchPatterns(payload, patterns) {
-  const matches = [];
+  const matches2 = [];
   for (const pattern of patterns) {
     const regex = new RegExp(pattern, "i");
     if (regex.test(payload)) {
-      matches.push(pattern);
+      matches2.push(pattern);
     }
   }
-  return matches;
+  return matches2;
 }
 function redactUnknown(value, policy, seen) {
   if (typeof value === "string") {
@@ -36779,6 +36779,12 @@ function resolveAuditPath() {
   return dataDir ? path3.join(dataDir, "audit.jsonl") : void 0;
 }
 
+// build/server/coordinator-client.mjs
+import fs6 from "node:fs";
+import { spawn as spawn2 } from "node:child_process";
+import { fileURLToPath as fileURLToPath3 } from "node:url";
+import { setTimeout as delay } from "node:timers/promises";
+
 // build/server/helper-process.mjs
 import { execFile, spawn } from "node:child_process";
 import { promisify } from "node:util";
@@ -36868,6 +36874,18 @@ import crypto from "node:crypto";
 
 // build/protocol/types.mjs
 var PROTOCOL_VERSION = 1;
+var READ_ONLY_OPS = /* @__PURE__ */ new Set([
+  "ping",
+  "resolve_target",
+  "resolve_element",
+  "screenshot",
+  "window_capture",
+  "list_windows",
+  "foreground_window",
+  "ui_tree",
+  "cursor_position",
+  "clipboard_get"
+]);
 function isHelperResponse(value) {
   if (value == null || typeof value !== "object") {
     return false;
@@ -37147,8 +37165,18 @@ function readBuildId(file2) {
   }
 }
 function installedHelperPath() {
-  const programFiles = process.env.ProgramFiles ?? "C:Program Files";
-  return path4.join(programFiles, "Computer Custom", "computer-custom-helper.exe");
+  const programFiles = process.env.ProgramFiles ?? "C:/Program Files";
+  const root = path4.join(programFiles, "Computer Custom"), pointer = path4.join(root, "active.json");
+  if (fs4.existsSync(pointer)) {
+    const active = JSON.parse(fs4.readFileSync(pointer, "utf8"));
+    if (active.schema !== 1 || !/^versions\/[a-f0-9]{16}-[a-f0-9]{8}$/.test(active.directory ?? ""))
+      throw new HelperClientError("HELPER_UNAVAILABLE", "Invalid installed helper version pointer. Reinstall the helper.");
+    const executable = path4.join(root, active.directory, "computer-custom-helper.exe");
+    if (!fs4.existsSync(executable))
+      throw new HelperClientError("HELPER_UNAVAILABLE", "The active installed helper version is incomplete. Reinstall the helper.");
+    return executable;
+  }
+  return path4.join(root, "computer-custom-helper.exe");
 }
 function sessionFilePath() {
   const base = process.env.LOCALAPPDATA ?? path4.join(os2.homedir(), "AppData", "Local");
@@ -37242,7 +37270,7 @@ var HelperProcess = class {
     const token = crypto2.randomBytes(32).toString("hex");
     const pipeName = `computer-custom.${crypto2.randomUUID()}`;
     const pipePath = `\\\\.\\pipe\\${pipeName}`;
-    if (wantsElevated()) {
+    if (this.#wantsElevated()) {
       const elevated = await this.#startElevated(pipeName, token, pipePath, generation);
       if (elevated) {
         return elevated;
@@ -37279,9 +37307,9 @@ var HelperProcess = class {
     }
     this.#client = client;
     this.#startInfo = {
-      requested: wantsElevated() ? "elevated" : "normal",
+      requested: this.#wantsElevated() ? "elevated" : "normal",
       actual: "normal",
-      ...wantsElevated() ? {
+      ...this.#wantsElevated() ? {
         notice: `Elevated start was requested but the signed helper is not installed at ${installedHelperPath()}, so this session runs at normal privilege and cannot drive elevated windows. Run scripts/install-elevated-helper.ps1 from an elevated PowerShell to set it up.`
       } : {}
     };
@@ -37303,7 +37331,7 @@ var HelperProcess = class {
    * can fall back to a normal start.
    */
   async #startElevated(pipeName, token, pipePath, generation) {
-    const installed = installedHelperPath();
+    const installed = this.#options.installedExecutablePath ?? installedHelperPath();
     if (!fs4.existsSync(installed)) {
       return void 0;
     }
@@ -37380,6 +37408,9 @@ var HelperProcess = class {
     }
     throw lastError instanceof Error ? lastError : new HelperClientError("HELPER_UNAVAILABLE", "Could not reach the helper");
   }
+  #wantsElevated() {
+    return this.#options.elevated ?? wantsElevated();
+  }
 };
 function bundledHelperPath() {
   const here = path4.dirname(fileURLToPath2(import.meta.url));
@@ -37424,159 +37455,529 @@ ${candidates.join("\n")}
 Set COMPUTER_CUSTOM_HELPER to its path, or build it with: dotnet build helper/ComputerCustom.Helper`);
 }
 
-// build/server/desktop-workers.mjs
-var UIA_OPERATIONS = /* @__PURE__ */ new Set(["ui_tree", "resolve_element", "invoke_element", "set_element_value"]);
-var DesktopWorkers = class {
-  control;
-  observation;
-  capture;
-  constructor(options = {}) {
-    this.control = options.control ?? new HelperProcess();
-    this.observation = options.observation ?? new HelperProcess();
-    this.capture = options.capture ?? new HelperProcess();
-  }
-  get startInfo() {
-    return this.control.startInfo;
-  }
-  call(op, args = {}, options = {}) {
-    if (UIA_OPERATIONS.has(op)) {
-      return this.observation.call(op, args, { ...options, timeoutMs: options.timeoutMs ?? 2e3 });
-    }
-    if (op === "window_capture" || op === "screenshot") {
-      return this.capture.call(op, args, { ...options, timeoutMs: options.timeoutMs ?? 2e3 });
-    }
-    return this.control.call(op, args, options);
-  }
-  stop() {
-    this.control.stop();
-    this.observation.stop();
-    this.capture.stop();
+// build/server/coordinator-client.mjs
+import path7 from "node:path";
+
+// build/server/coordinator-ipc.mjs
+import net2 from "node:net";
+import { createHmac, randomUUID, randomBytes, timingSafeEqual } from "node:crypto";
+
+// build/server/desktop-settings.mjs
+import os3 from "node:os";
+import path5 from "node:path";
+var desktopSettingsSchema = external_exports.object({
+  batchThreshold: external_exports.number().int().positive().default(5),
+  countdownMs: external_exports.number().int().nonnegative().default(5e3),
+  snoozeMs: external_exports.number().int().positive().default(3e5),
+  maxControlMs: external_exports.number().int().min(1).max(1e4).default(1e4),
+  inputMode: external_exports.enum(["block", "ignore"]).default("block")
+}).strict();
+var DEFAULT_DESKTOP_SETTINGS = Object.freeze(desktopSettingsSchema.parse({}));
+function desktopDataDirectory() {
+  return process.env.COMPUTER_CUSTOM_DATA ?? path5.join(process.env.LOCALAPPDATA ?? path5.join(os3.homedir(), "AppData", "Local"), "computer-custom");
+}
+
+// build/server/batch-coordinator.mjs
+var BatchError = class extends Error {
+  code;
+  constructor(code, message) {
+    super(message);
+    this.code = code;
+    this.name = "BatchError";
   }
 };
 
-// build/server/overlay.mjs
-import { spawn as spawn2 } from "node:child_process";
-import fs5 from "node:fs";
-import path5 from "node:path";
-import { fileURLToPath as fileURLToPath3 } from "node:url";
-var Overlay = class {
-  #options;
-  #child;
-  #state = "idle";
-  #failed = false;
-  constructor(options = {}) {
-    this.#options = options;
+// build/server/coordinator-ipc.mjs
+var VERSION = 1;
+var proof = (secret, message) => createHmac("sha256", secret).update(message).digest("hex");
+function matches(actual, expected) {
+  return typeof actual === "string" && actual.length === expected.length && timingSafeEqual(Buffer.from(actual), Buffer.from(expected));
+}
+function packet(frame) {
+  const value = decodeJsonFrame(frame);
+  if (!value || typeof value !== "object" || Array.isArray(value))
+    throw new Error("Invalid coordinator frame");
+  return value;
+}
+var CoordinatorConnection = class {
+  #endpoint;
+  #owner = randomUUID();
+  #pending = /* @__PURE__ */ new Map();
+  #socket;
+  #starting;
+  #ready = false;
+  #nextId = 0;
+  #rejectConnecting;
+  constructor(endpoint) {
+    this.#endpoint = endpoint;
   }
-  get enabled() {
-    const value = process.env.COMPUTER_CUSTOM_OVERLAY;
-    return value !== "0" && value?.toLowerCase() !== "false";
+  get owner() {
+    return this.#owner;
   }
-  get running() {
-    return this.#child !== void 0 && !this.#child.killed;
+  get connected() {
+    return this.#ready && !!this.#socket && !this.#socket.destroyed;
   }
-  /** Starts the overlay if it is enabled and not already up. */
-  start() {
-    if (!this.enabled || this.running || this.#failed) {
-      return;
-    }
-    const executable = this.#options.executablePath ?? resolveOverlayPath();
-    if (!executable) {
-      this.#failed = true;
-      return;
-    }
-    try {
-      const child = spawn2(executable, {
-        stdio: ["pipe", "pipe", "ignore"],
-        windowsHide: true
-      });
-      child.on("error", () => {
-        this.#failed = true;
-        this.#child = void 0;
-      });
-      child.on("exit", () => {
-        this.#child = void 0;
-      });
-      child.stdin?.on("error", () => {
-      });
-      child.stdout?.on("error", () => {
-      });
-      let buffered = "";
-      child.stdout?.on("data", (chunk) => {
-        buffered += chunk.toString();
-        const lines = buffered.split("\n");
-        buffered = lines.pop() ?? "";
-        for (const line of lines) {
-          this.handleEvent(line.trim());
+  request(method, args, options = {}) {
+    if (options.signal?.aborted)
+      return Promise.reject(new BatchError("CANCELLED", "Coordinator request cancelled."));
+    const deadlineAt = Date.now() + (options.timeoutMs ?? 3e4);
+    let id, done = false;
+    let rejectAnswer;
+    const abort = () => {
+      rejectAnswer(new BatchError("CANCELLED", "Coordinator request cancelled."));
+      if (id !== void 0)
+        this.#socket?.write(encodeJsonFrame({ type: "cancel", id }));
+      else
+        this.close();
+    };
+    let timer;
+    const answer = new Promise((resolve, reject) => {
+      const finish = (error62, value) => {
+        if (done)
+          return;
+        done = true;
+        if (error62)
+          reject(error62);
+        else
+          resolve(value);
+      };
+      rejectAnswer = (error62) => finish(error62);
+      timer = setTimeout(() => {
+        finish(new BatchError("TIMEOUT", `Coordinator did not answer ${method} within its deadline.`));
+        if (id !== void 0)
+          this.#socket?.write(encodeJsonFrame({ type: "cancel", id }));
+        else
+          this.close();
+      }, Math.max(1, deadlineAt - Date.now()));
+      options.signal?.addEventListener("abort", abort, { once: true });
+      void this.#connect().then(() => {
+        if (done)
+          return;
+        id = ++this.#nextId;
+        this.#pending.set(id, { resolve: (value) => finish(void 0, value), reject: (error62) => finish(error62) });
+        this.#socket.write(encodeJsonFrame({ type: "request", id, method, args, deadlineAt }));
+      }).catch((error62) => finish(error62));
+    });
+    return answer.finally(() => {
+      clearTimeout(timer);
+      options.signal?.removeEventListener("abort", abort);
+      if (id !== void 0)
+        this.#pending.delete(id);
+    });
+  }
+  close() {
+    const error62 = new BatchError("CONNECTION_CLOSED", "Coordinator connection closed; inspect batch progress before replaying actions.");
+    this.#socket?.destroy();
+    this.#socket = void 0;
+    this.#ready = false;
+    this.#rejectConnecting?.(error62);
+    this.#rejectConnecting = void 0;
+    for (const operation of this.#pending.values())
+      operation.reject(error62);
+    this.#pending.clear();
+  }
+  #connect() {
+    if (this.#ready)
+      return Promise.resolve();
+    if (this.#starting)
+      return this.#starting;
+    const socket = net2.createConnection(this.#endpoint.pipePath);
+    this.#socket = socket;
+    const decoder = new FrameDecoder();
+    let binary;
+    const starting = new Promise((resolve, reject) => {
+      const timer = setTimeout(() => fail(new BatchError("TIMEOUT", "Coordinator authentication timed out.")), 3e3);
+      const fail = (error62) => {
+        clearTimeout(timer);
+        reject(error62);
+        if (this.#socket === socket) {
+          this.#rejectConnecting = void 0;
+          this.close();
+        }
+      };
+      this.#rejectConnecting = fail;
+      socket.on("error", (error62) => fail(error62));
+      socket.on("close", () => fail(new BatchError("CONNECTION_CLOSED", "Coordinator disconnected.")));
+      socket.on("data", (chunk) => {
+        if (this.#socket !== socket)
+          return;
+        try {
+          for (const frame of decoder.push(chunk)) {
+            if (binary) {
+              if (frame.length !== binary.length)
+                throw new Error("Invalid coordinator image frame");
+              this.#pending.get(binary.id)?.resolve({ result: binary.result, binary: frame });
+              binary = void 0;
+              continue;
+            }
+            const message = packet(frame);
+            if (message.type === "challenge") {
+              if (message.version !== VERSION || typeof message.nonce !== "string" || !matches(message.proof, proof(this.#endpoint.secret, `server:${VERSION}:${message.nonce}`)))
+                throw new Error("Cannot authenticate the local coordinator.");
+              socket.write(encodeJsonFrame({
+                type: "hello",
+                owner: this.#owner,
+                proof: proof(this.#endpoint.secret, `client:${VERSION}:${message.nonce}:${this.#owner}`)
+              }));
+            } else if (message.type === "ready" && message.owner === this.#owner && message.version === VERSION) {
+              this.#ready = true;
+              clearTimeout(timer);
+              this.#rejectConnecting = void 0;
+              resolve();
+            } else if (this.#ready && message.type === "response" && Number.isSafeInteger(message.id)) {
+              const pending = this.#pending.get(message.id);
+              if (message.ok === false) {
+                const error62 = message.error;
+                pending?.reject(new BatchError(error62.code, error62.message));
+              } else if (typeof message.binary === "number")
+                binary = { id: message.id, length: message.binary, result: message.result };
+              else
+                pending?.resolve({ result: message.result });
+            } else
+              throw new Error("Invalid coordinator message");
+          }
+        } catch (error62) {
+          fail(error62);
         }
       });
-      this.#child = child;
-      this.#send({ state: this.#state });
-    } catch {
-      this.#failed = true;
-    }
-  }
-  setState(state) {
-    if (this.#state === state) {
-      return;
-    }
-    this.#state = state;
-    this.#send({ state });
-  }
-  /** Marks where a click landed, so a fast sequence can be followed. */
-  ripple(x, y) {
-    this.#send({ ripple: { x, y } });
-  }
-  stop() {
-    this.#send({ quit: true });
-    try {
-      this.#child?.kill();
-    } catch {
-    }
-    this.#child = void 0;
-  }
-  /**
-   * Handles one line of the overlay's output.
-   *
-   * Public because the stdout reader is not the only legitimate caller: a test
-   * needs to drive the path from an event to the panic callback without
-   * synthesising a real keypress.
-   */
-  handleEvent(line) {
-    if (line.length === 0) {
-      return;
-    }
-    try {
-      const event = JSON.parse(line);
-      if (event.event === "panic") {
-        this.#options.onPanic?.();
-      }
-    } catch {
-    }
-  }
-  #send(payload) {
-    if (!this.#child?.stdin?.writable) {
-      return;
-    }
-    try {
-      this.#child.stdin.write(`${JSON.stringify(payload)}
-`);
-    } catch {
-    }
+    });
+    this.#starting = starting;
+    void starting.finally(() => {
+      if (this.#starting === starting)
+        this.#starting = void 0;
+    }).catch(() => {
+    });
+    return starting;
   }
 };
-function resolveOverlayPath() {
-  const override = process.env.COMPUTER_CUSTOM_OVERLAY_EXE;
-  if (override) {
-    return fs5.existsSync(override) ? override : void 0;
-  }
-  const here = path5.dirname(fileURLToPath3(import.meta.url));
-  const candidates = [
-    path5.resolve(here, "..", "helper", "computer-custom-overlay.exe"),
-    path5.resolve(here, "..", "..", "helper", "computer-custom-overlay.exe"),
-    path5.resolve(here, "..", "..", "helper", "ComputerCustom.Overlay", "bin", "Debug", "net10.0-windows", "computer-custom-overlay.exe")
-  ];
-  return candidates.find((candidate) => fs5.existsSync(candidate));
+
+// build/server/coordinator-endpoint.mjs
+import fs5 from "node:fs";
+import path6 from "node:path";
+import { createHash, randomBytes as randomBytes2, randomUUID as randomUUID2 } from "node:crypto";
+function sessionKey(userSid, sessionId) {
+  return createHash("sha256").update(`${userSid}:${sessionId}:${path6.resolve(desktopDataDirectory()).toLowerCase()}`).digest("hex").slice(0, 24);
 }
+function coordinatorFiles(key) {
+  if (!/^[a-f0-9]{24}$/.test(key))
+    throw new Error("Invalid Windows session key.");
+  const directory = desktopDataDirectory();
+  fs5.mkdirSync(directory, { recursive: true });
+  const file2 = path6.join(directory, `coordinator-${key}.key`);
+  if (!fs5.existsSync(file2)) {
+    const temporary = `${file2}.${randomUUID2()}.tmp`;
+    try {
+      fs5.writeFileSync(temporary, randomBytes2(32).toString("hex"), { mode: 384 });
+      try {
+        fs5.linkSync(temporary, file2);
+      } catch (error62) {
+        if (error62.code !== "EEXIST")
+          throw error62;
+      }
+    } finally {
+      fs5.rmSync(temporary, { force: true });
+    }
+  }
+  const secret = fs5.readFileSync(file2, "utf8").trim();
+  if (!/^[a-f0-9]{64}$/.test(secret))
+    throw new Error("The coordinator session key file is invalid.");
+  return {
+    endpoint: { pipePath: `\\\\.\\pipe\\ComputerCustom.Desktop.v1.${key}`, secret },
+    stateFile: path6.join(directory, `coordinator-${key}.json`),
+    logFile: path6.join(directory, `coordinator-${key}.log`)
+  };
+}
+
+// build/server/coordinator-client.mjs
+var CoordinatorClient = class {
+  #connection;
+  #starting;
+  #bootstrap;
+  #generation = 0;
+  async request(method, args, options = {}) {
+    options.signal?.throwIfAborted();
+    const started = performance.now(), deadline = options.timeoutMs ?? 3e4;
+    let rejectStartup;
+    const cancelled = new Promise((_, reject) => {
+      rejectStartup = reject;
+    });
+    const cancel = (code, message) => {
+      rejectStartup(new BatchError(code, message));
+      this.stop();
+    };
+    const onAbort = () => cancel("CANCELLED", "Coordinator startup cancelled.");
+    const timer = setTimeout(() => cancel("TIMEOUT", "Coordinator startup exceeded the request deadline."), deadline);
+    options.signal?.addEventListener("abort", onAbort, { once: true });
+    let connection;
+    try {
+      connection = await Promise.race([this.#connect(), cancelled]);
+    } finally {
+      clearTimeout(timer);
+      options.signal?.removeEventListener("abort", onAbort);
+    }
+    options.signal?.throwIfAborted();
+    const remaining = deadline - (performance.now() - started);
+    if (remaining <= 0)
+      throw new BatchError("TIMEOUT", "Coordinator startup consumed the request deadline.");
+    return connection.request(method, args, { ...options, timeoutMs: remaining });
+  }
+  stop() {
+    this.#generation++;
+    this.#connection?.close();
+    this.#connection = void 0;
+    this.#bootstrap?.stop();
+    this.#starting = void 0;
+  }
+  #connect() {
+    if (this.#connection?.connected)
+      return Promise.resolve(this.#connection);
+    this.#connection?.close();
+    this.#connection = void 0;
+    if (this.#starting)
+      return this.#starting;
+    const generation = this.#generation;
+    const check2 = () => {
+      if (generation !== this.#generation)
+        throw new BatchError("CANCELLED", "Coordinator startup cancelled.");
+    };
+    const starting = (async () => {
+      const bootstrap = new HelperProcess({ elevated: false });
+      this.#bootstrap = bootstrap;
+      let identity2;
+      try {
+        try {
+          identity2 = (await bootstrap.call("ping", {}, { timeoutMs: 3e3 })).result;
+        } catch (error62) {
+          check2();
+          if (error62.code !== "HELPER_UNAVAILABLE")
+            throw error62;
+          bootstrap.stop();
+          identity2 = (await bootstrap.call("ping", {}, { timeoutMs: 3e3 })).result;
+        }
+      } finally {
+        bootstrap.stop();
+        if (this.#bootstrap === bootstrap)
+          this.#bootstrap = void 0;
+      }
+      check2();
+      if (!identity2.userSid || !Number.isSafeInteger(identity2.sessionId))
+        throw new Error("The packaged helper cannot identify this Windows session. Rebuild/update the plugin.");
+      const key = sessionKey(identity2.userSid, identity2.sessionId);
+      const files = coordinatorFiles(key), connection = new CoordinatorConnection(files.endpoint);
+      let launched = false;
+      try {
+        for (let attempt = 0; attempt < 60; attempt++) {
+          check2();
+          try {
+            await connection.request("hello", { helper: {
+              executablePath: path7.resolve(resolveHelperPath()),
+              elevated: process.env.COMPUTER_CUSTOM_ELEVATED !== "0" && process.env.COMPUTER_CUSTOM_ELEVATED?.toLowerCase() !== "false"
+            } }, { timeoutMs: 1e3 });
+            check2();
+            this.#connection = connection;
+            return connection;
+          } catch (error62) {
+            check2();
+            const code = error62.code;
+            if (!["ENOENT", "ECONNREFUSED", "CONNECTION_CLOSED"].includes(code ?? ""))
+              throw error62;
+            if (!launched) {
+              const log = fs6.openSync(files.logFile, "a");
+              try {
+                const child = spawn2(process.execPath, [fileURLToPath3(new URL("./coordinator-host.mjs", import.meta.url)), "--session", key], { detached: true, windowsHide: true, stdio: ["ignore", "ignore", log], env: process.env });
+                child.on("error", () => {
+                });
+                child.unref();
+                launched = true;
+              } finally {
+                fs6.closeSync(log);
+              }
+            }
+            await delay(50);
+          }
+        }
+        throw new BatchError("HELPER_UNAVAILABLE", `The desktop coordinator did not start. See ${files.logFile}.`);
+      } catch (error62) {
+        connection.close();
+        throw error62;
+      }
+    })();
+    this.#starting = starting;
+    void starting.finally(() => {
+      if (this.#starting === starting)
+        this.#starting = void 0;
+    }).catch(() => {
+    });
+    return starting;
+  }
+};
+
+// build/server/batch-runner.mjs
+var PREPARED_OPS = /* @__PURE__ */ new Set(["focus_window", "wait_for", "move", "click", "drag", "scroll", "type_text", "key", "invoke_element", "set_element_value", "clipboard_set"]);
+
+// build/server/desktop-session.mjs
+import { AsyncLocalStorage } from "node:async_hooks";
+var DesktopSession = class {
+  #client;
+  #serial = Promise.resolve();
+  #pending;
+  #batches = /* @__PURE__ */ new Set();
+  #prepared = /* @__PURE__ */ new Set();
+  #target;
+  #startInfo;
+  #flowScope = new AsyncLocalStorage();
+  constructor(client = new CoordinatorClient()) {
+    this.#client = client;
+  }
+  get startInfo() {
+    return this.#startInfo;
+  }
+  withPreparedFlow(run) {
+    return this.#flowScope.run(true, run);
+  }
+  stop() {
+    this.#client.stop();
+    this.#pending = void 0;
+    this.#batches.clear();
+    this.#prepared.clear();
+    this.#target = void 0;
+  }
+  #ordered(run) {
+    const result = this.#serial.then(run);
+    this.#serial = result.catch(() => {
+    });
+    return result;
+  }
+  call(op, args = {}, options = {}) {
+    return this.#ordered(async () => {
+      if (READ_ONLY_OPS.has(op)) {
+        await this.#flush(options);
+        const answer2 = await this.#native(op, args, options);
+        if (op === "ping")
+          this.#startInfo = answer2.result.start;
+        if (op === "ui_tree")
+          this.#target = answer2.result.target ?? this.#target;
+        if (op === "foreground_window" && answer2.result)
+          this.#target = identity(answer2.result);
+        return answer2;
+      }
+      if (!PREPARED_OPS.has(op))
+        throw new BatchError("BAD_ARGS", `Unsupported prepared operation '${op}'.`);
+      const action2 = await this.#bind(op, args, options);
+      const answer = await this.#client.request("prepare", { id: this.#pending, actions: [action2], ...this.#flowScope.getStore() ? { flush: false } : {} }, options);
+      const batch = answer.result;
+      this.#pending = batch.state === "prepared" ? batch.id : void 0;
+      this.#batches.add(batch.id);
+      this.#target = action2.target;
+      this.#track(batch);
+      return answer;
+    });
+  }
+  request(method, args, options = {}) {
+    if (method === "flush_batch")
+      return this.flush(options);
+    if (method === "observe")
+      return this.#ordered(async () => {
+        await this.#flush(options);
+        const answer = await this.#client.request(method, args, options);
+        this.#target = identity(answer.result.target) ?? this.#target;
+        return answer;
+      });
+    if (method === "prepare")
+      return this.#ordered(async () => {
+        const answer = await this.#client.request(method, args, options);
+        this.#track(answer.result);
+        return answer;
+      });
+    return this.#client.request(method, args, options);
+  }
+  flush(options = {}) {
+    return this.#ordered(() => this.#flush(options));
+  }
+  cancelPending() {
+    return this.#ordered(async () => {
+      for (const id of this.#batches)
+        await this.#client.request("cancel_batch", { id });
+      this.#batches.clear();
+      this.#prepared.clear();
+      this.#pending = void 0;
+    });
+  }
+  #track(batch) {
+    this.#batches.add(batch.id);
+    if (batch.state === "prepared")
+      this.#prepared.add(batch.id);
+    else
+      this.#prepared.delete(batch.id);
+  }
+  async #flush(options) {
+    for (const id of this.#prepared) {
+      const status = (await this.#client.request("batch_status", { id }, options)).result;
+      if (status.state === "prepared")
+        await this.#client.request("prepare", { id, actions: [], flush: true }, options);
+      this.#prepared.delete(id);
+      if (this.#pending === id)
+        this.#pending = void 0;
+    }
+    const batches = [];
+    for (const id of this.#batches) {
+      let batch = (await this.#client.request("batch_status", { id }, options)).result;
+      while (!["succeeded", "failed", "cancelled"].includes(batch.state)) {
+        if (batch.state === "snoozed")
+          throw new BatchError("SNOOZED", JSON.stringify({ id, state: batch.state, resumeAt: batch.resumeAt }));
+        batch = (await this.#client.request("wait_batch", { id, afterRevision: batch.revision, timeoutMs: 3e4 }, { ...options, timeoutMs: options.timeoutMs ?? 35e3 })).result;
+      }
+      this.#batches.delete(id);
+      batches.push(batch);
+      if (batch.state !== "succeeded")
+        throw new BatchError(batch.error?.code ?? "EXECUTION_FAILED", JSON.stringify(batch));
+    }
+    return { result: { state: "succeeded", batches } };
+  }
+  #native(op, args, options) {
+    return this.#client.request("native", { op, args }, options);
+  }
+  async #bind(op, args, options) {
+    let target;
+    if (op === "invoke_element" || op === "set_element_value") {
+      target = (await this.#native("resolve_element", { elementId: args.elementId }, options)).result.target;
+    } else if (op === "focus_window") {
+      const windows = (await this.#native("list_windows", {}, options)).result;
+      const window = windows.find((w) => w.handle === args.handle);
+      if (window)
+        target = identity(window);
+    } else if (args.target) {
+      target = identity(args.target);
+    } else if (["move", "click", "scroll", "drag"].includes(op)) {
+      const windows = (await this.#native("list_windows", {}, options)).result;
+      const x = Number(args.x ?? args.fromX), y = Number(args.y ?? args.fromY);
+      const contains = (w) => x >= w.x && y >= w.y && x < w.x + w.width && y < w.y + w.height;
+      const window = windows.find((w) => w.handle === this.#target?.handle && contains(w)) ?? windows.find(contains);
+      if (window)
+        target = identity(window);
+    } else
+      target = this.#target ?? identity((await this.#native("foreground_window", {}, options)).result);
+    if (!target)
+      throw new BatchError("NO_TARGET", "No observed window owns this action. Observe/select a target first.");
+    const { confirm, handle, target: ignored, ...bound } = args;
+    if (["move", "click", "scroll", "drag"].includes(op)) {
+      const window = (await this.#native("resolve_target", { target }, options)).result;
+      for (const name of ["x", "fromX", "toX"])
+        if (typeof bound[name] === "number")
+          bound[name] -= window.x;
+      for (const name of ["y", "fromY", "toY"])
+        if (typeof bound[name] === "number")
+          bound[name] -= window.y;
+    }
+    return { op, target, args: bound };
+  }
+};
+function identity(value) {
+  return value ? { handle: value.handle, pid: value.pid, processStartTime: value.processStartTime ?? null } : void 0;
+}
+
+// build/server/tools.mjs
+import { AsyncLocalStorage as AsyncLocalStorage2 } from "node:async_hooks";
 
 // build/server/confirm.mjs
 var PHRASE_REQUIRED_RISKS = /* @__PURE__ */ new Set(["irreversible"]);
@@ -37681,8 +38082,8 @@ function buildManualInstructions(request) {
 
 // build/server/system.mjs
 import { execFile as execFile2 } from "node:child_process";
-import fs6 from "node:fs/promises";
-import path6 from "node:path";
+import fs7 from "node:fs/promises";
+import path8 from "node:path";
 var MAX_OUTPUT_BYTES = 1e5;
 var DEFAULT_TIMEOUT_MS = 12e4;
 async function runShell(options) {
@@ -37725,13 +38126,13 @@ Timed out after ${timeout}ms.` : err),
 }
 async function readTextFile(filePath, maxBytes) {
   const limit = maxBytes ?? MAX_OUTPUT_BYTES;
-  const resolved = path6.resolve(filePath);
-  const stat = await fs6.stat(resolved).catch(() => void 0);
+  const resolved = path8.resolve(filePath);
+  const stat = await fs7.stat(resolved).catch(() => void 0);
   if (!stat) {
     throw new Error(`No such file: ${resolved}`);
   }
   if (stat.isDirectory()) {
-    const entries = await fs6.readdir(resolved, { withFileTypes: true });
+    const entries = await fs7.readdir(resolved, { withFileTypes: true });
     return {
       path: resolved,
       content: entries.map((entry) => `${entry.isDirectory() ? "dir " : "file"}  ${entry.name}`).join("\n"),
@@ -37739,7 +38140,7 @@ async function readTextFile(filePath, maxBytes) {
       truncated: false
     };
   }
-  const handle = await fs6.open(resolved, "r");
+  const handle = await fs7.open(resolved, "r");
   try {
     const buffer = Buffer.alloc(Math.min(stat.size, limit));
     await handle.read(buffer, 0, buffer.byteLength, 0);
@@ -37754,46 +38155,46 @@ async function readTextFile(filePath, maxBytes) {
   }
 }
 async function writeTextFile(filePath, content, append) {
-  const resolved = path6.resolve(filePath);
-  await fs6.mkdir(path6.dirname(resolved), { recursive: true });
+  const resolved = path8.resolve(filePath);
+  await fs7.mkdir(path8.dirname(resolved), { recursive: true });
   if (append) {
-    await fs6.appendFile(resolved, content, "utf8");
+    await fs7.appendFile(resolved, content, "utf8");
   } else {
-    await fs6.writeFile(resolved, content, "utf8");
+    await fs7.writeFile(resolved, content, "utf8");
   }
   return { path: resolved, bytes: Buffer.byteLength(content, "utf8"), append };
 }
 async function deletePath(targetPath, recursive2) {
-  const resolved = path6.resolve(targetPath);
-  const stat = await fs6.stat(resolved).catch(() => void 0);
+  const resolved = path8.resolve(targetPath);
+  const stat = await fs7.stat(resolved).catch(() => void 0);
   if (!stat) {
     throw new Error(`No such path: ${resolved}`);
   }
   if (stat.isDirectory()) {
-    const entries = await fs6.readdir(resolved);
+    const entries = await fs7.readdir(resolved);
     if (!recursive2 && entries.length > 0) {
       throw new Error(`${resolved} is a directory holding ${entries.length} entries. Pass recursive: true to remove it and everything inside.`);
     }
-    await fs6.rm(resolved, { recursive: true, force: false });
+    await fs7.rm(resolved, { recursive: true, force: false });
     return { path: resolved, kind: "directory", entriesRemoved: entries.length };
   }
-  await fs6.rm(resolved, { force: false });
+  await fs7.rm(resolved, { force: false });
   return { path: resolved, kind: "file", entriesRemoved: 1 };
 }
 async function describeDeleteTarget(targetPath) {
-  const resolved = path6.resolve(targetPath);
-  const stat = await fs6.stat(resolved).catch(() => void 0);
+  const resolved = path8.resolve(targetPath);
+  const stat = await fs7.stat(resolved).catch(() => void 0);
   if (!stat) {
     return `${resolved} (does not exist)`;
   }
   if (!stat.isDirectory()) {
     return `the file ${resolved} (${stat.size} bytes)`;
   }
-  const entries = await fs6.readdir(resolved).catch(() => []);
+  const entries = await fs7.readdir(resolved).catch(() => []);
   return `the directory ${resolved} and its ${entries.length} entries`;
 }
 async function assertDirectory(candidate) {
-  const stat = await fs6.stat(candidate).catch(() => void 0);
+  const stat = await fs7.stat(candidate).catch(() => void 0);
   if (!stat?.isDirectory()) {
     throw new Error(`Working directory does not exist: ${candidate}`);
   }
@@ -37804,12 +38205,19 @@ function clamp(value) {
 }
 
 // build/server/flows.mjs
-import fs7 from "node:fs/promises";
-import { randomUUID } from "node:crypto";
-import path7 from "node:path";
+import fs8 from "node:fs/promises";
+import { randomUUID as randomUUID3 } from "node:crypto";
+import path9 from "node:path";
 import { pathToFileURL } from "node:url";
 var FLOW_EXTENSIONS = /* @__PURE__ */ new Set([".mjs", ".js"]);
 var FLOW_TOOLS = [
+  "observe",
+  "prepare_batch",
+  "batch_status",
+  "wait_batch",
+  "cancel_batch",
+  "flush_batch",
+  "desktop_settings",
   "status",
   "list_windows",
   "foreground_window",
@@ -37833,28 +38241,28 @@ var FLOW_TOOLS = [
   "fs_delete"
 ];
 function resolveFlowsDirectory() {
-  return process.env.COMPUTER_CUSTOM_FLOWS ?? path7.resolve(process.cwd(), "flows");
+  return process.env.COMPUTER_CUSTOM_FLOWS ?? path9.resolve(process.cwd(), "flows");
 }
 async function listFlows(directory) {
-  const entries = await fs7.readdir(directory, { withFileTypes: true }).catch(() => void 0);
+  const entries = await fs8.readdir(directory, { withFileTypes: true }).catch(() => void 0);
   if (!entries) {
     return [];
   }
   const flows = [];
   for (const entry of entries) {
-    if (!entry.isFile() || !FLOW_EXTENSIONS.has(path7.extname(entry.name))) {
+    if (!entry.isFile() || !FLOW_EXTENSIONS.has(path9.extname(entry.name))) {
       continue;
     }
-    const filePath = path7.join(directory, entry.name);
+    const filePath = path9.join(directory, entry.name);
     flows.push({
-      name: path7.basename(entry.name, path7.extname(entry.name)),
+      name: path9.basename(entry.name, path9.extname(entry.name)),
       description: await readDescription(filePath),
       path: filePath
     });
   }
   return flows.sort((a, b) => a.name.localeCompare(b.name));
 }
-async function runFlow(directory, name, args, invoke) {
+async function runFlow(directory, name, args, invoke, lifecycle = {}) {
   const file2 = await findFlowFile(directory, name);
   if (!file2) {
     const available = (await listFlows(directory)).map((flow) => flow.name);
@@ -37866,9 +38274,9 @@ async function runFlow(directory, name, args, invoke) {
     };
   }
   const logs = [];
-  const context = buildFlowContext(invoke, args, logs);
+  const context = buildFlowContext(invoke, args, logs, lifecycle);
   try {
-    const module = await import(`${pathToFileURL(file2).href}?v=${randomUUID()}`);
+    const module = await import(`${pathToFileURL(file2).href}?v=${randomUUID3()}`);
     if (typeof module.default !== "function") {
       return {
         flow: name,
@@ -37883,7 +38291,7 @@ async function runFlow(directory, name, args, invoke) {
     return { flow: name, ok: false, logs, error: error62.message };
   }
 }
-function buildFlowContext(invoke, args, logs) {
+function buildFlowContext(invoke, args, logs, lifecycle) {
   const call = async (tool, toolArgs = {}) => {
     const result = await invoke(tool, toolArgs);
     const body = result.content.find((part) => part.type === "text");
@@ -37903,7 +38311,10 @@ function buildFlowContext(invoke, args, logs) {
     log: (message) => {
       logs.push(String(message));
     },
-    sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms))
+    sleep: async (ms) => {
+      await lifecycle.beforeSleep?.();
+      await new Promise((resolve) => setTimeout(resolve, ms));
+    }
   };
   for (const tool of FLOW_TOOLS) {
     context[tool] = (toolArgs = {}) => call(tool, toolArgs);
@@ -37911,9 +38322,9 @@ function buildFlowContext(invoke, args, logs) {
   return context;
 }
 async function findFlowFile(directory, name) {
-  const safe = path7.basename(name, path7.extname(name));
+  const safe = path9.basename(name, path9.extname(name));
   for (const extension of FLOW_EXTENSIONS) {
-    const candidate = path7.join(directory, `${safe}${extension}`);
+    const candidate = path9.join(directory, `${safe}${extension}`);
     if (await exists(candidate)) {
       return candidate;
     }
@@ -37921,15 +38332,56 @@ async function findFlowFile(directory, name) {
   return void 0;
 }
 async function readDescription(filePath) {
-  const source = await fs7.readFile(filePath, "utf8").catch(() => "");
+  const source = await fs8.readFile(filePath, "utf8").catch(() => "");
   const match = /export\s+const\s+description\s*=\s*(["'`])([\s\S]*?)\1/.exec(source);
   return match?.[2]?.trim() ?? "";
 }
 async function exists(candidate) {
-  return fs7.access(candidate).then(() => true).catch(() => false);
+  return fs8.access(candidate).then(() => true).catch(() => false);
 }
 
+// build/server/prepared-actions.mjs
+var targetSchema = external_exports.object({ handle: external_exports.number().int().positive(), pid: external_exports.number().int().positive(), processStartTime: external_exports.string().nullable() });
+var point = { x: external_exports.number().int().nonnegative(), y: external_exports.number().int().nonnegative() };
+var button = external_exports.enum(["left", "right", "middle"]).optional();
+var expectSchema = external_exports.object({ elementId: external_exports.string().min(1), property: external_exports.enum(["value", "name", "focused", "enabled"]), equals: external_exports.union([external_exports.string(), external_exports.boolean()]), timeoutMs: external_exports.number().int().positive().max(2e3).optional() }).strict();
+var selectorSchema = external_exports.object({ name: external_exports.string().min(1).optional(), automationId: external_exports.string().min(1).optional(), role: external_exports.string().min(1).optional() }).strict().refine((v) => !!(v.name || v.automationId), "Selector needs an exact name or automationId");
+var action = (op, args) => external_exports.object({ op: external_exports.literal(op), target: targetSchema, args, expect: expectSchema.optional() });
+var preparedActionSchema = external_exports.discriminatedUnion("op", [
+  action("focus_window", external_exports.object({}).strict()),
+  action("wait_for", external_exports.object({
+    name: external_exports.string().min(1).optional(),
+    automationId: external_exports.string().min(1).optional(),
+    role: external_exports.string().min(1).optional(),
+    timeoutMs: external_exports.number().int().positive().max(1e4).optional()
+  }).strict().refine((v) => !!(v.name || v.automationId), "Wait needs an exact name or automationId")),
+  action("move", external_exports.object(point).strict()),
+  action("click", external_exports.object({ ...point, button, count: external_exports.number().int().min(1).max(3).optional() }).strict()),
+  action("scroll", external_exports.object({ ...point, dx: external_exports.number().int().optional(), dy: external_exports.number().int().optional() }).strict()),
+  action("drag", external_exports.object({ fromX: point.x, fromY: point.y, toX: point.x, toY: point.y, button }).strict()),
+  action("type_text", external_exports.object({ text: external_exports.string() }).strict()),
+  action("clipboard_set", external_exports.object({ text: external_exports.string() }).strict()),
+  action("key", external_exports.object({ keys: external_exports.array(external_exports.string()).min(1) }).strict()),
+  action("invoke_element", external_exports.object({ elementId: external_exports.string().min(1).optional(), selector: selectorSchema.optional() }).strict().refine((v) => !!v.elementId !== !!v.selector, "Provide elementId or selector")),
+  action("set_element_value", external_exports.object({ elementId: external_exports.string().min(1), value: external_exports.string() }).strict())
+]);
+var prepareSchema = external_exports.object({
+  id: external_exports.string().optional(),
+  actions: external_exports.array(preparedActionSchema),
+  flush: external_exports.boolean().optional(),
+  title: external_exports.string().optional(),
+  inputMode: external_exports.enum(["block", "ignore"]).optional()
+}).strict();
+var observeSchema = external_exports.object({
+  target: targetSchema,
+  mode: external_exports.enum(["combined", "tree", "image", "targeted"]).optional(),
+  query: external_exports.string().optional(),
+  depth: external_exports.number().int().min(1).max(60).optional(),
+  maxNodes: external_exports.number().int().min(1).max(4e3).optional()
+}).strict();
+
 // build/server/tools.mjs
+var callOptions = new AsyncLocalStorage2();
 var confirmArg = {
   confirm: external_exports.string().optional().describe("Only for gated actions. The exact phrase the user typed, relayed verbatim. Never write this yourself; ask the user for it.")
 };
@@ -37953,7 +38405,7 @@ var INPUT_TOOLS = /* @__PURE__ */ new Set([
   "clipboard_set"
 ]);
 async function withTargetContext(context, tool, args) {
-  if (!INPUT_TOOLS.has(tool)) {
+  if (!INPUT_TOOLS.has(tool) || !context.policy.confirm.appPatterns.length && !context.policy.hardBlock.appPatterns.length) {
     return args;
   }
   try {
@@ -37979,8 +38431,8 @@ async function gated(context, tool, rawArgs, summary, run) {
     return failure2(`${context.session.reason ?? "The user stopped this session."} Do not retry. Tell the user the session was halted and wait for them.`);
   }
   const { confirm: suppliedPhrase, ...args } = rawArgs;
-  context.overlay.start();
-  context.overlay.setState(INPUT_TOOLS.has(tool) ? "acting" : "observing");
+  context.overlay?.start();
+  context.overlay?.setState(INPUT_TOOLS.has(tool) ? "acting" : "observing");
   const payload = await withTargetContext(context, tool, args);
   const decision = classifyToolCall(tool, payload, context.policy);
   if (decision.action === "block") {
@@ -37994,7 +38446,7 @@ async function gated(context, tool, rawArgs, summary, run) {
   }
   if (decision.action === "confirm") {
     const target = payload.target;
-    context.overlay.setState("waiting");
+    context.overlay?.setState("waiting");
     const outcome = await requestConfirmation(context.mcp.server, {
       tool,
       reason: decision.reason,
@@ -38008,7 +38460,7 @@ Target: ${target.process} \u2014 ${target.title ?? ""}`.trimEnd() : summary,
       suppliedPhrase
     });
     if (!outcome.approved) {
-      context.overlay.setState("idle");
+      context.overlay?.setState("idle");
       context.audit.append({
         tool,
         decision: "denied",
@@ -38026,13 +38478,13 @@ Target: ${target.process} \u2014 ${target.title ?? ""}`.trimEnd() : summary,
   }
   try {
     if (decision.action === "confirm") {
-      context.overlay.setState(INPUT_TOOLS.has(tool) ? "acting" : "observing");
+      context.overlay?.setState(INPUT_TOOLS.has(tool) ? "acting" : "observing");
     }
     const result = await run(args);
     if ((tool === "click" || tool === "drag") && typeof args.x === "number" && typeof args.y === "number") {
-      context.overlay.ripple(args.x, args.y);
+      context.overlay?.ripple(args.x, args.y);
     } else if (tool === "drag" && typeof args.toX === "number" && typeof args.toY === "number") {
-      context.overlay.ripple(args.toX, args.toY);
+      context.overlay?.ripple(args.toX, args.toY);
     }
     if (decision.action === "allow") {
       context.audit.append({ tool, decision: "allow", reason: decision.reason, args: payload, ok: true });
@@ -38050,12 +38502,12 @@ Target: ${target.process} \u2014 ${target.title ?? ""}`.trimEnd() : summary,
     });
     return failure2(message);
   } finally {
-    context.overlay.setState("idle");
+    context.overlay?.setState("idle");
   }
 }
 function describeError(error62) {
   if (!(error62 instanceof HelperClientError)) {
-    return `Failed: ${error62.message}`;
+    return `${error62.code ?? "Failed"}: ${error62.message}`;
   }
   switch (error62.code) {
     case "SECURE_DESKTOP":
@@ -38076,8 +38528,15 @@ function registerTools(context) {
   const { mcp, helper } = context;
   const handlers = /* @__PURE__ */ new Map();
   const register = (name, config2, handler) => {
-    handlers.set(name, handler);
-    mcp.registerTool(name, config2, handler);
+    const checked = async (args) => {
+      try {
+        return await handler(external_exports.object(config2.inputSchema ?? {}).strict().parse(args));
+      } catch (error62) {
+        return failure2(describeError(error62));
+      }
+    };
+    handlers.set(name, checked);
+    mcp.registerTool(name, config2, ((args, extra) => callOptions.run({ signal: extra?.signal }, () => checked(args))));
   };
   const invoke = async (name, args) => {
     const handler = handlers.get(name);
@@ -38086,14 +38545,39 @@ function registerTools(context) {
     }
     return handler(args);
   };
-  const passthrough = (op) => async (args) => text((await helper.call(op, args)).result);
+  const passthrough = (op) => async (args) => text((await helper.call(op, args, callOptions.getStore())).result);
+  const present = (answer) => ({ content: [
+    { type: "text", text: JSON.stringify(answer.result) },
+    ...answer.binary ? [{ type: "image", data: answer.binary.toString("base64"), mimeType: "image/png" }] : []
+  ] });
+  const desktop = async (method, args, timeoutMs) => {
+    if (!context.desktop)
+      throw new Error("Prepared desktop coordinator is unavailable.");
+    return present(await context.desktop.request(method, args, { ...callOptions.getStore(), ...timeoutMs ? { timeoutMs } : {} }));
+  };
+  register("observe", { title: "Observe a window", description: "Read one window without focusing it. Combined compact accessibility and window capture by default; tree/image/targeted modes share a two-second native deadline. Coordinates are window-relative; retain target identity for prepare_batch.", inputSchema: observeSchema.shape, annotations: { readOnlyHint: true } }, (args) => gated(context, "observe", args, "Observe a window.", (inner) => desktop("observe", inner)));
+  register("prepare_batch", { title: "Prepare desktop actions", description: "Prepare ordered actions against observed window/process identities. Coordinates are window-relative. Five actions queue automatically; flush:true queues fewer; flush:false defers known scripts. Single flushed actions execute immediately; multiple actions get a five-second countdown. invoke_element accepts an observed elementId or a live exact selector. wait_for waits for a visible control; expect waits for an observed control property. Returns progress; use wait_batch/status and never replay completed steps.", inputSchema: { ...prepareSchema.shape, ...confirmArg }, annotations: { readOnlyHint: false } }, async (args) => {
+    const actions = args.actions;
+    for (const action2 of actions) {
+      const authorized = await gated(context, action2.op, { ...action2.args, target: action2.target, confirm: args.confirm }, `Prepare ${action2.op}.`, async () => text({ authorized: true }));
+      if (authorized.isError)
+        return authorized;
+    }
+    const { confirm, ...request } = args;
+    return desktop("prepare", request);
+  });
+  register("batch_status", { title: "Batch status", description: "Read progress, completed action count, error and resumeAt for your batch.", inputSchema: { id: external_exports.string() }, annotations: { readOnlyHint: true } }, (args) => desktop("batch_status", args));
+  register("wait_batch", { title: "Wait for batch progress", description: "Wait for a revision change or completion. A snoozed batch returns resumeAt immediately; do other work or wait until that time instead of polling.", inputSchema: { id: external_exports.string(), afterRevision: external_exports.number().int().optional(), timeoutMs: external_exports.number().int().min(0).max(6e4).optional() }, annotations: { readOnlyHint: true } }, (args) => desktop("wait_batch", args, 65e3));
+  register("cancel_batch", { title: "Cancel batch", description: "Cancel your queued or running batch; completed progress remains available.", inputSchema: { id: external_exports.string() }, annotations: { readOnlyHint: false } }, (args) => desktop("cancel_batch", args));
+  register("flush_batch", { title: "Flush legacy actions", description: "Queue and wait for pending legacy click/key/type actions before a dependency or task completion. A snooze returns the batch id and resumeAt in SNOOZED; wait until then without replaying actions.", inputSchema: {}, annotations: { readOnlyHint: false } }, (args) => desktop("flush_batch", args, 65e3));
+  register("desktop_settings", { title: "Desktop settings", description: "Read or update persistent desktop settings shared across Computer Custom sessions. Defaults: five actions, five-second batch notice, five-minute Snooze, ten-second maximum control. Single flushed actions have no notice. block suppresses physical input; ignore leaves it enabled and skips quiet-time waits.", inputSchema: desktopSettingsSchema.partial().shape, annotations: { readOnlyHint: false } }, (args) => desktop("settings", args));
   register("status", {
     title: "Status",
-    description: "What this helper can currently reach: privilege level, whether it has UIAccess, whether a Windows security prompt is on screen, the displays, how the helper was started, and the machine's UAC settings. Call this first in a session, and again after any UIPI_BLOCKED error. If start.notice is present, read it out to the user. uacPromptOnSecureDesktop tells you whether UAC prompts are reachable at all: when true they never are, whatever your privilege.",
+    description: "Read actual helper privilege/UIAccess, displays, desktop availability, launch provenance and UAC settings. Read once and after UIPI_BLOCKED; report start.notice when present. This helper cannot operate the secure desktop. No UAC settings are changed.",
     inputSchema: {},
     annotations: { readOnlyHint: true }
   }, async () => gated(context, "ping", {}, "Read helper status.", async () => {
-    const answer = await helper.call("ping");
+    const answer = await helper.call("ping", {}, callOptions.getStore());
     return text({ ...answer.result, start: helper.startInfo });
   }));
   register("list_windows", {
@@ -38110,7 +38594,7 @@ function registerTools(context) {
   }, async () => gated(context, "foreground_window", {}, "Read the focused window.", passthrough("foreground_window")));
   register("ui_tree", {
     title: "Read UI tree",
-    description: "PREFER THIS OVER screenshot. Reads the window's accessibility tree: real control names, values and exact bounds, so clicks land on the right thing. Returns only actionable elements by default. Always check 'truncated' \u2014 if true, narrow with depth or raise maxNodes. Fall back to screenshot only for custom-drawn UI, canvases and games.",
+    description: "Read a window's accessibility tree without focusing. Check truncated and narrow the read if needed. IDs remain valid until this window is observed again or its process ends. Use observe for a compact combined image/tree response; use images for custom-drawn UI.",
     inputSchema: {
       handle: external_exports.number().describe("Window handle from list_windows."),
       depth: external_exports.number().int().min(1).max(60).optional().describe("Traversal depth. Default 25; modern apps nest deeply."),
@@ -38121,7 +38605,7 @@ function registerTools(context) {
   }, async (args) => gated(context, "ui_tree", args, "Read a window's UI tree.", passthrough("ui_tree")));
   register("screenshot", {
     title: "Screenshot",
-    description: "Capture the screen, or a region of it, as an image. Use ui_tree first when the window exposes one; pixels cannot tell you a control's name and coordinates drift. Good for custom-drawn UI, canvases, games, and for confirming what actually happened.",
+    description: "Capture the desktop or a region. For an individual window, observe mode image captures it even when occluded. Desktop coordinates used by legacy tools are bound to a window when prepared.",
     inputSchema: {
       x: external_exports.number().int().optional(),
       y: external_exports.number().int().optional(),
@@ -38130,7 +38614,7 @@ function registerTools(context) {
     },
     annotations: { readOnlyHint: true }
   }, async (args) => gated(context, "screenshot", args, "Take a screenshot.", async (inner) => {
-    const answer = await helper.call("screenshot", inner);
+    const answer = await helper.call("screenshot", inner, callOptions.getStore());
     if (!answer.binary) {
       return failure2("The helper returned no image data.");
     }
@@ -38157,7 +38641,7 @@ function registerTools(context) {
   }, async () => gated(context, "clipboard_get", {}, "Read the clipboard.", passthrough("clipboard_get")));
   register("focus_window", {
     title: "Focus window",
-    description: "Bring a window to the front and restore it if minimised. Do this before sending input to it.",
+    description: "Queue window activation/restoration. Prepared input focuses its target automatically; observation does not require focus. Call flush_batch before relying on the effect.",
     inputSchema: { handle: external_exports.number().describe("Window handle from list_windows."), ...confirmArg },
     annotations: { readOnlyHint: false }
   }, async (args) => gated(context, "focus_window", args, "Bring a window to the front.", passthrough("focus_window")));
@@ -38169,7 +38653,7 @@ function registerTools(context) {
   }, async (args) => gated(context, "move", args, `Move the mouse.`, passthrough("move")));
   register("click", {
     title: "Click",
-    description: "Click at a screen position. Prefer invoke_element when the target came from ui_tree: it is immune to the window moving. Observe again after clicking; never reuse coordinates from an earlier look.",
+    description: "Queue a click at a screen position, bound to the selected window. Use invoke_element for an observed control or prepare_batch for a sequence with window-relative coordinates. Observe after UI changes; flush_batch waits for pending effects.",
     inputSchema: {
       x: external_exports.number().int(),
       y: external_exports.number().int(),
@@ -38218,7 +38702,7 @@ function registerTools(context) {
   }, async (args) => gated(context, "key", args, `Press ${args.keys.join("+")}.`, passthrough("key")));
   register("invoke_element", {
     title: "Invoke element",
-    description: "Activate an element by its id from the most recent ui_tree: press a button, toggle a checkbox, select an item, expand a node. More reliable than clicking pixels. Ids expire when you read the tree again.",
+    description: "Queue activation of an observed control: press a button, toggle, select or expand. IDs expire when that window is observed again or its process ends. flush_batch waits for pending effects.",
     inputSchema: { elementId: external_exports.string().describe("elementId from ui_tree."), ...confirmArg },
     annotations: { readOnlyHint: false }
   }, async (args) => gated(context, "invoke_element", args, "Activate a UI element.", passthrough("invoke_element")));
@@ -38307,7 +38791,19 @@ function registerTools(context) {
       ...confirmArg
     },
     annotations: { readOnlyHint: false }
-  }, async (args) => gated(context, "run_flow", args, `Run the saved flow '${String(args.name)}'.`, async (inner) => text(await runFlow(resolveFlowsDirectory(), String(inner.name), inner.args ?? {}, invoke))));
+  }, async (args) => gated(context, "run_flow", args, `Run the saved flow '${String(args.name)}'.`, async (inner) => {
+    const execute = async () => {
+      const result = await runFlow(resolveFlowsDirectory(), String(inner.name), inner.args ?? {}, invoke, { beforeSleep: async () => {
+        await context.desktop?.flush(callOptions.getStore());
+      } });
+      if (result.ok)
+        await context.desktop?.flush(callOptions.getStore());
+      else
+        await context.desktop?.cancelPending();
+      return text(result);
+    };
+    return context.desktop?.withPreparedFlow ? context.desktop.withPreparedFlow(execute) : execute();
+  }));
   register("audit", {
     title: "Show audit trail",
     description: "What this session attempted, including blocked and refused actions, with secrets redacted. Use it to show the user what happened.",
@@ -38321,63 +38817,31 @@ function registerTools(context) {
 }
 
 // build/server/index.mjs
-var SERVER_INSTRUCTIONS = `Controls this Windows machine: screen, mouse, keyboard, windows.
+var SERVER_INSTRUCTIONS = `Use Computer Custom when explicitly selected or when its prepared desktop batches, signed UIAccess helper, or saved local flows are needed. Prefer bundled Computer for ordinary computer tasks when it is available. This plugin does not wrap or replace bundled Computer.
 
-Workflow that works:
-1. status, once, to learn what this helper can reach.
-2. list_windows to choose a target, then focus_window.
-3. ui_tree to see the real controls. Prefer it over screenshot.
-4. Act with invoke_element where you can, click and type where you cannot.
-5. Observe again after every action. Never reuse coordinates or element ids
-   from an earlier look; windows move and trees are rebuilt.
+Read status once, select a target from list_windows, and use observe without focusing. Prepare known actions together with prepare_batch, using observed target identities and window-relative coordinates. Five actions queue automatically; flush:true queues fewer, flush:false defers a known script. Single flushed actions execute immediately. Multiple actions get a five-second notice with Snooze/Cancel and execute automatically for at most ten seconds. Use live invoke_element selectors and wait_for for navigation dependencies. wait_batch returns progress or a shared resumeAt on Snooze. Never replay completed steps. Observe when the UI changes or a dependency needs its result, not between every predetermined step.
 
-Limits that are real, not policy:
-- Elevated windows need an elevated helper. You will see UIPI_BLOCKED.
-- The UAC consent prompt depends on the machine. Check status:
-  - uacPromptOnSecureDesktop true: it is unreachable by anything. On
-    SECURE_DESKTOP, stop and ask the user to answer it.
-  - false, with uiAccess true: input does reach it. ui_tree still cannot read
-    it, so screenshot the prompt and click by coordinates. Answering one always
-    asks you for confirmation first, and that is deliberate.
+Legacy click/key/type/focus tools append to the same queue. They report queued progress, not completed effects. Observations flush pending actions; call flush_batch at task completion. Saved flows flush before observations, sleeps and completion. Input is held only during native execution. block suppresses physical input; ignore leaves user input enabled. Ctrl+Alt+Del releases Windows BlockInput; the overlay hotkey may not be received while blocking.
 
-Some actions are gated. When one is, relay the request to the user and use the
-phrase they give you. Never invent a confirmation phrase.
-
-The user can see a coloured border while you work, and can stop you instantly
-with Ctrl+Alt+Shift+Esc. If a call reports the session was halted, stop: do not
-retry, do not work around it, tell them and wait.`;
+Host/model authorization remains authoritative. Carry already-authorized work through matching admin consent without another plugin confirmation by default. Confirm the prompt corresponds to the intended action. SECURE_DESKTOP means this helper cannot access that desktop: ask the user to answer it. Never change UAC settings automatically. UIAccess/integrity and actual errors determine reachable windows. Explicit local policy overrides can still request confirmation; relay those without inventing phrases. HALTED means the user stopped input: do not retry.`;
 async function main() {
   const config2 = loadServerConfig();
   const audit = new AuditLog(config2.policy, config2.auditPath);
-  const helper = new DesktopWorkers();
+  const helper = new DesktopSession();
   const session = { halted: false };
-  const overlay = new Overlay({
-    onPanic: () => {
-      session.halted = true;
-      session.reason = "The user pressed the stop key (Ctrl+Alt+Shift+Esc) and halted this session.";
-      helper.stop();
-      audit.append({
-        tool: "panic",
-        decision: "denied",
-        reason: "User pressed the stop hotkey",
-        args: {}
-      });
-    }
-  });
-  const mcp = new McpServer({ name: "computer-custom", version: "0.2.0" }, { capabilities: { tools: {} }, instructions: SERVER_INSTRUCTIONS });
-  registerTools({ mcp, helper, policy: config2.policy, audit, overlay, session });
+  const mcp = new McpServer({ name: "computer-custom", version: "0.3.0" }, { capabilities: { tools: {} }, instructions: SERVER_INSTRUCTIONS });
+  registerTools({ mcp, helper, desktop: helper, policy: config2.policy, audit, session });
   const shutdown = () => {
-    overlay.stop();
     helper.stop();
     process.exit(0);
   };
   process.on("SIGINT", shutdown);
   process.on("SIGTERM", shutdown);
   process.on("exit", () => {
-    overlay.stop();
     helper.stop();
   });
   await mcp.connect(new StdioServerTransport());
+  process.stdin.once("end", shutdown);
 }
 main().catch((error62) => {
   process.stderr.write(`computer-custom failed to start: ${error62.message}

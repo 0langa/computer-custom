@@ -49,6 +49,7 @@ internal static class PreparedInput
                     args.TryGetProperty("dy", out var dy) ? dy.GetInt32() : 0);
                 break;
             case "type_text": InputSender.TypeText(args.GetProperty("text").GetString() ?? ""); break;
+            case "clipboard_set": ClipboardBridge.SetText(args.GetProperty("text").GetString() ?? ""); break;
             case "key":
                 InputSender.PressKeys(args.GetProperty("keys").EnumerateArray().Select(k => k.GetString() ?? "").ToArray());
                 break;

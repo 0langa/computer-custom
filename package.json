@@ -1,7 +1,7 @@
 {
   "name": "computer-custom",
-  "version": "0.2.3",
-  "description": "Policy-controlled Windows Computer Use wrapper for Codex and Claude Code.",
+  "version": "0.3.0",
+  "description": "Prepared Windows desktop batches and UIAccess for Codex and Claude Code.",
   "type": "module",
   "private": false,
   "license": "MIT",
@@ -11,7 +11,7 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.json && node scripts/build-dist.mjs",
-    "test": "npm run build && dotnet build helper/ComputerCustom.Helper --nologo -v:q && dotnet build tests/desktop-fixture --nologo -v:q && node --test tests/*.test.mjs",
+    "test": "npm run build && dotnet build helper/ComputerCustom.Helper --nologo -v:q && dotnet build helper/ComputerCustom.Overlay --nologo -v:q && dotnet build tests/desktop-fixture --nologo -v:q && node scripts/test.mjs",
     "sync:upstream": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/sync-upstream.ps1",
     "scan:public": "node scripts/check-public-safety.mjs",
     "publish:helper": "node scripts/publish-helper.mjs",

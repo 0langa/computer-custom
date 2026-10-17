@@ -1,7 +1,7 @@
 {
   "name": "computer-custom",
-  "version": "0.2.3",
-  "description": "Self-contained Windows computer control with policy gates. No other runtime required.",
+  "version": "0.3.0",
+  "description": "Explicit Windows automation with prepared batches, shared Snooze and a signed UIAccess helper.",
   "author": {
     "name": "0langa",
     "email": "plugins@0langa.dev",
@@ -14,7 +14,7 @@
     "computer-use",
     "windows",
     "automation",
-    "policy",
+    "batches",
     "claude-code"
   ],
   "skills": "./skills/",

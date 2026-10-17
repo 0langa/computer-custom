@@ -1,4 +1,4 @@
-import { HelperProcess, type HelperStartInfo } from "./helper-process.mjs";
+import { HelperProcess, type HelperStartInfo, type HelperProcessOptions } from "./helper-process.mjs";
 import type { HelperCallOptions, HelperCallResult } from "./helper-client.mjs";
 import type { HelperOp } from "../protocol/types.mjs";
 
@@ -16,10 +16,10 @@ export class DesktopWorkers implements NativeWorker {
   readonly observation: NativeWorker;
   readonly capture: NativeWorker;
 
-  constructor(options: {control?: NativeWorker; observation?: NativeWorker; capture?: NativeWorker} = {}) {
-    this.control = options.control ?? new HelperProcess();
-    this.observation = options.observation ?? new HelperProcess();
-    this.capture = options.capture ?? new HelperProcess();
+  constructor(options: {control?: NativeWorker; observation?: NativeWorker; capture?: NativeWorker;helper?:HelperProcessOptions} = {}) {
+    this.control = options.control ?? new HelperProcess(options.helper);
+    this.observation = options.observation ?? new HelperProcess(options.helper);
+    this.capture = options.capture ?? new HelperProcess(options.helper);
   }
 
   get startInfo(): HelperStartInfo | undefined { return this.control.startInfo; }

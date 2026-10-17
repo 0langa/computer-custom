@@ -23,6 +23,7 @@ const FLOW_EXTENSIONS = new Set([".mjs", ".js"]);
 
 /** Tool names a flow can call as `cc.<name>(args)`. */
 const FLOW_TOOLS = [
+  "observe","prepare_batch","batch_status","wait_batch","cancel_batch","flush_batch","desktop_settings",
   "status",
   "list_windows",
   "foreground_window",
@@ -92,6 +93,7 @@ export async function runFlow(
   name: string,
   args: Record<string, unknown>,
   invoke: ToolInvoker,
+  lifecycle:{beforeSleep?:()=>Promise<void>}={},
 ): Promise<FlowRunResult> {
   const file = await findFlowFile(directory, name);
   if (!file) {
@@ -108,7 +110,7 @@ export async function runFlow(
   }
 
   const logs: string[] = [];
-  const context = buildFlowContext(invoke, args, logs);
+  const context = buildFlowContext(invoke, args, logs,lifecycle);
 
   try {
     // The query string defeats the module cache, so editing a flow and running
@@ -144,6 +146,7 @@ function buildFlowContext(
   invoke: ToolInvoker,
   args: Record<string, unknown>,
   logs: string[],
+  lifecycle:{beforeSleep?:()=>Promise<void>},
 ): Record<string, unknown> {
   const call = async (tool: string, toolArgs: Record<string, unknown> = {}): Promise<unknown> => {
     const result = await invoke(tool, toolArgs);
@@ -167,7 +170,7 @@ function buildFlowContext(
     log: (message: unknown) => {
       logs.push(String(message));
     },
-    sleep: (ms: number) => new Promise((resolve) => setTimeout(resolve, ms)),
+    sleep: async(ms:number)=>{await lifecycle.beforeSleep?.();await new Promise(resolve=>setTimeout(resolve,ms));},
   };
 
   for (const tool of FLOW_TOOLS) {

@@ -8,6 +8,7 @@
 
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
+import { AsyncLocalStorage } from "node:async_hooks";
 import { type PolicyConfig, classifyToolCall } from "../policy.mjs";
 import type { AuditLog } from "./audit.mjs";
 import { requestConfirmation } from "./confirm.mjs";
@@ -23,6 +24,12 @@ import {
 } from "./system.mjs";
 import { listFlows, resolveFlowsDirectory, runFlow } from "./flows.mjs";
 import type { Overlay } from "./overlay.mjs";
+import type { DesktopSession } from "./desktop-session.mjs";
+import type { HelperCallOptions, HelperCallResult } from "./helper-client.mjs";
+import { prepareSchema, observeSchema } from "./prepared-actions.mjs";
+import { desktopSettingsSchema } from "./desktop-settings.mjs";
+
+const callOptions=new AsyncLocalStorage<HelperCallOptions>();
 
 /**
  * Set when the user presses the panic hotkey. Every tool call checks it, so a
@@ -35,7 +42,8 @@ export type ToolContext = {
   policy: PolicyConfig;
   audit: AuditLog;
   mcp: McpServer;
-  overlay: Overlay;
+  overlay?: Overlay;
+  desktop?: DesktopSession;
   session: SessionState;
 };
 
@@ -97,7 +105,7 @@ async function withTargetContext(
   tool: string,
   args: Record<string, unknown>,
 ): Promise<Record<string, unknown>> {
-  if (!INPUT_TOOLS.has(tool)) {
+  if (!INPUT_TOOLS.has(tool) || (!context.policy.confirm.appPatterns.length && !context.policy.hardBlock.appPatterns.length)) {
     return args;
   }
 
@@ -150,8 +158,8 @@ async function gated(
   const { confirm: suppliedPhrase, ...args } = rawArgs as { confirm?: string } & Record<string, unknown>;
 
   // Show what is happening before it happens, not after.
-  context.overlay.start();
-  context.overlay.setState(INPUT_TOOLS.has(tool) ? "acting" : "observing");
+  context.overlay?.start();
+  context.overlay?.setState(INPUT_TOOLS.has(tool) ? "acting" : "observing");
 
   // Classified with the target application attached; executed without it.
   const payload = await withTargetContext(context, tool, args);
@@ -174,7 +182,7 @@ async function gated(
   if (decision.action === "confirm") {
     const target = payload.target as { process?: string; title?: string } | undefined;
     // Red while a human is being asked: the machine is stopped and waiting.
-    context.overlay.setState("waiting");
+    context.overlay?.setState("waiting");
     const outcome = await requestConfirmation(context.mcp.server, {
       tool,
       reason: decision.reason,
@@ -191,7 +199,7 @@ Target: ${target.process} — ${target.title ?? ""}`.trimEnd()
     });
 
     if (!outcome.approved) {
-      context.overlay.setState("idle");
+      context.overlay?.setState("idle");
       context.audit.append({
         tool,
         decision: "denied",
@@ -212,7 +220,7 @@ Target: ${target.process} — ${target.title ?? ""}`.trimEnd()
 
   try {
     if (decision.action === "confirm") {
-      context.overlay.setState(INPUT_TOOLS.has(tool) ? "acting" : "observing");
+      context.overlay?.setState(INPUT_TOOLS.has(tool) ? "acting" : "observing");
     }
 
     const result = await run(args);
@@ -220,9 +228,9 @@ Target: ${target.process} — ${target.title ?? ""}`.trimEnd()
     // Mark where a click actually landed. The moving cursor shows the journey;
     // this shows the destination, which is what matters afterwards.
     if ((tool === "click" || tool === "drag") && typeof args.x === "number" && typeof args.y === "number") {
-      context.overlay.ripple(args.x, args.y);
+      context.overlay?.ripple(args.x, args.y);
     } else if (tool === "drag" && typeof args.toX === "number" && typeof args.toY === "number") {
-      context.overlay.ripple(args.toX, args.toY);
+      context.overlay?.ripple(args.toX, args.toY);
     }
 
     if (decision.action === "allow") {
@@ -243,7 +251,7 @@ Target: ${target.process} — ${target.title ?? ""}`.trimEnd()
 
     return failure(message);
   } finally {
-    context.overlay.setState("idle");
+    context.overlay?.setState("idle");
   }
 }
 
@@ -253,7 +261,7 @@ Target: ${target.process} — ${target.title ?? ""}`.trimEnd()
  */
 function describeError(error: unknown): string {
   if (!(error instanceof HelperClientError)) {
-    return `Failed: ${(error as Error).message}`;
+    return `${(error as Error & {code?:string}).code??"Failed"}: ${(error as Error).message}`;
   }
 
   switch (error.code) {
@@ -296,8 +304,13 @@ export function registerTools(context: ToolContext): ToolInvoker {
     },
     handler: (args: Record<string, unknown>) => Promise<ToolResult>,
   ) => {
-    handlers.set(name, handler);
-    mcp.registerTool(name, config as never, handler as never);
+    const checked=async(args:Record<string,unknown>):Promise<ToolResult>=>{
+      try{return await handler(z.object((config.inputSchema??{}) as z.ZodRawShape).strict().parse(args));}
+      catch(error){return failure(describeError(error));}
+    };
+    handlers.set(name, checked);
+    mcp.registerTool(name, config as never, ((args:Record<string,unknown>,extra?:{signal?:AbortSignal})=>
+      callOptions.run({signal:extra?.signal},()=>checked(args))) as never);
   };
 
   const invoke: ToolInvoker = async (name, args) => {
@@ -312,7 +325,31 @@ export function registerTools(context: ToolContext): ToolInvoker {
   const passthrough =
     (op: HelperOp) =>
     async (args: Record<string, unknown>): Promise<ToolResult> =>
-      text((await helper.call(op, args)).result);
+      text((await helper.call(op, args,callOptions.getStore())).result);
+
+  const present=(answer:HelperCallResult):ToolResult=>({content:[
+    {type:"text",text:JSON.stringify(answer.result)},
+    ...(answer.binary?[{type:"image" as const,data:answer.binary.toString("base64"),mimeType:"image/png"}]:[]),
+  ]});
+  const desktop=async(method:string,args:Record<string,unknown>,timeoutMs?:number)=>{
+    if(!context.desktop)throw new Error("Prepared desktop coordinator is unavailable.");
+    return present(await context.desktop.request(method,args,{...callOptions.getStore(),...(timeoutMs?{timeoutMs}:{})}));
+  };
+  register("observe",{title:"Observe a window",description:"Read one window without focusing it. Combined compact accessibility and window capture by default; tree/image/targeted modes share a two-second native deadline. Coordinates are window-relative; retain target identity for prepare_batch.",inputSchema:observeSchema.shape,annotations:{readOnlyHint:true}},
+    args=>gated(context,"observe",args,"Observe a window.",inner=>desktop("observe",inner)));
+  register("prepare_batch",{title:"Prepare desktop actions",description:"Prepare ordered actions against observed window/process identities. Coordinates are window-relative. Five actions queue automatically; flush:true queues fewer; flush:false defers known scripts. Single flushed actions execute immediately; multiple actions get a five-second countdown. invoke_element accepts an observed elementId or a live exact selector. wait_for waits for a visible control; expect waits for an observed control property. Returns progress; use wait_batch/status and never replay completed steps.",inputSchema:{...prepareSchema.shape,...confirmArg},annotations:{readOnlyHint:false}},async args=>{
+    const actions=args.actions as Array<{op:string;args:Record<string,unknown>;target:unknown}>;
+    for(const action of actions){
+      const authorized=await gated(context,action.op,{...action.args,target:action.target,confirm:args.confirm},`Prepare ${action.op}.`,async()=>text({authorized:true}));
+      if(authorized.isError)return authorized;
+    }
+    const {confirm,...request}=args;return desktop("prepare",request);
+  });
+  register("batch_status",{title:"Batch status",description:"Read progress, completed action count, error and resumeAt for your batch.",inputSchema:{id:z.string()},annotations:{readOnlyHint:true}},args=>desktop("batch_status",args));
+  register("wait_batch",{title:"Wait for batch progress",description:"Wait for a revision change or completion. A snoozed batch returns resumeAt immediately; do other work or wait until that time instead of polling.",inputSchema:{id:z.string(),afterRevision:z.number().int().optional(),timeoutMs:z.number().int().min(0).max(60000).optional()},annotations:{readOnlyHint:true}},args=>desktop("wait_batch",args,65000));
+  register("cancel_batch",{title:"Cancel batch",description:"Cancel your queued or running batch; completed progress remains available.",inputSchema:{id:z.string()},annotations:{readOnlyHint:false}},args=>desktop("cancel_batch",args));
+  register("flush_batch",{title:"Flush legacy actions",description:"Queue and wait for pending legacy click/key/type actions before a dependency or task completion. A snooze returns the batch id and resumeAt in SNOOZED; wait until then without replaying actions.",inputSchema:{},annotations:{readOnlyHint:false}},args=>desktop("flush_batch",args,65000));
+  register("desktop_settings",{title:"Desktop settings",description:"Read or update persistent desktop settings shared across Computer Custom sessions. Defaults: five actions, five-second batch notice, five-minute Snooze, ten-second maximum control. Single flushed actions have no notice. block suppresses physical input; ignore leaves it enabled and skips quiet-time waits.",inputSchema:desktopSettingsSchema.partial().shape,annotations:{readOnlyHint:false}},args=>desktop("settings",args));
 
   // ---- look ------------------------------------------------------------
 
@@ -321,13 +358,13 @@ export function registerTools(context: ToolContext): ToolInvoker {
     {
       title: "Status",
       description:
-        "What this helper can currently reach: privilege level, whether it has UIAccess, whether a Windows security prompt is on screen, the displays, how the helper was started, and the machine's UAC settings. Call this first in a session, and again after any UIPI_BLOCKED error. If start.notice is present, read it out to the user. uacPromptOnSecureDesktop tells you whether UAC prompts are reachable at all: when true they never are, whatever your privilege.",
+        "Read actual helper privilege/UIAccess, displays, desktop availability, launch provenance and UAC settings. Read once and after UIPI_BLOCKED; report start.notice when present. This helper cannot operate the secure desktop. No UAC settings are changed.",
       inputSchema: {},
       annotations: { readOnlyHint: true },
     },
     async () =>
       gated(context, "ping", {}, "Read helper status.", async () => {
-        const answer = await helper.call("ping");
+        const answer = await helper.call("ping",{},callOptions.getStore());
         // The helper reports what it actually got from Windows; startInfo
         // reports what we asked for. When they disagree the agent needs to see
         // both, or it will keep trying to drive windows it cannot reach.
@@ -365,7 +402,7 @@ export function registerTools(context: ToolContext): ToolInvoker {
     {
       title: "Read UI tree",
       description:
-        "PREFER THIS OVER screenshot. Reads the window's accessibility tree: real control names, values and exact bounds, so clicks land on the right thing. Returns only actionable elements by default. Always check 'truncated' — if true, narrow with depth or raise maxNodes. Fall back to screenshot only for custom-drawn UI, canvases and games.",
+        "Read a window's accessibility tree without focusing. Check truncated and narrow the read if needed. IDs remain valid until this window is observed again or its process ends. Use observe for a compact combined image/tree response; use images for custom-drawn UI.",
       inputSchema: {
         handle: z.number().describe("Window handle from list_windows."),
         depth: z.number().int().min(1).max(60).optional().describe("Traversal depth. Default 25; modern apps nest deeply."),
@@ -385,7 +422,7 @@ export function registerTools(context: ToolContext): ToolInvoker {
     {
       title: "Screenshot",
       description:
-        "Capture the screen, or a region of it, as an image. Use ui_tree first when the window exposes one; pixels cannot tell you a control's name and coordinates drift. Good for custom-drawn UI, canvases, games, and for confirming what actually happened.",
+        "Capture the desktop or a region. For an individual window, observe mode image captures it even when occluded. Desktop coordinates used by legacy tools are bound to a window when prepared.",
       inputSchema: {
         x: z.number().int().optional(),
         y: z.number().int().optional(),
@@ -396,7 +433,7 @@ export function registerTools(context: ToolContext): ToolInvoker {
     },
     async (args) =>
       gated(context, "screenshot", args, "Take a screenshot.", async (inner) => {
-        const answer = await helper.call("screenshot", inner);
+        const answer = await helper.call("screenshot", inner,callOptions.getStore());
         if (!answer.binary) {
           return failure("The helper returned no image data.");
         }
@@ -441,7 +478,7 @@ export function registerTools(context: ToolContext): ToolInvoker {
     "focus_window",
     {
       title: "Focus window",
-      description: "Bring a window to the front and restore it if minimised. Do this before sending input to it.",
+      description: "Queue window activation/restoration. Prepared input focuses its target automatically; observation does not require focus. Call flush_batch before relying on the effect.",
       inputSchema: { handle: z.number().describe("Window handle from list_windows."), ...confirmArg },
       annotations: { readOnlyHint: false },
     },
@@ -465,7 +502,7 @@ export function registerTools(context: ToolContext): ToolInvoker {
     {
       title: "Click",
       description:
-        "Click at a screen position. Prefer invoke_element when the target came from ui_tree: it is immune to the window moving. Observe again after clicking; never reuse coordinates from an earlier look.",
+        "Queue a click at a screen position, bound to the selected window. Use invoke_element for an observed control or prepare_batch for a sequence with window-relative coordinates. Observe after UI changes; flush_batch waits for pending effects.",
       inputSchema: {
         x: z.number().int(),
         y: z.number().int(),
@@ -558,7 +595,7 @@ export function registerTools(context: ToolContext): ToolInvoker {
     {
       title: "Invoke element",
       description:
-        "Activate an element by its id from the most recent ui_tree: press a button, toggle a checkbox, select an item, expand a node. More reliable than clicking pixels. Ids expire when you read the tree again.",
+        "Queue activation of an observed control: press a button, toggle, select or expand. IDs expire when that window is observed again or its process ends. flush_batch waits for pending effects.",
       inputSchema: { elementId: z.string().describe("elementId from ui_tree."), ...confirmArg },
       annotations: { readOnlyHint: false },
     },
@@ -726,16 +763,21 @@ export function registerTools(context: ToolContext): ToolInvoker {
       annotations: { readOnlyHint: false },
     },
     async (args) =>
-      gated(context, "run_flow", args, `Run the saved flow '${String(args.name)}'.`, async (inner) =>
-        text(
-          await runFlow(
+      gated(context, "run_flow", args, `Run the saved flow '${String(args.name)}'.`, async (inner) => {
+        const execute=async()=>{
+        const result=await runFlow(
             resolveFlowsDirectory(),
             String(inner.name),
             (inner.args as Record<string, unknown> | undefined) ?? {},
             invoke,
-          ),
-        ),
-      ),
+            {beforeSleep:async()=>{await context.desktop?.flush(callOptions.getStore());}},
+          );
+        if(result.ok)await context.desktop?.flush(callOptions.getStore());
+        else await context.desktop?.cancelPending();
+        return text(result);
+        };
+        return context.desktop?.withPreparedFlow?context.desktop.withPreparedFlow(execute):execute();
+      }),
   );
 
   // ---- accountability ---------------------------------------------------

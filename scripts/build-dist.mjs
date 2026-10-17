@@ -36,8 +36,9 @@ fs.mkdirSync(path.join(distRoot, "flows"), { recursive: true });
 // The MCP server ships as one bundled file with its dependencies inlined, so
 // the installed plugin needs no npm install and no node_modules beside it.
 esbuild.buildSync({
-  entryPoints: [path.join(repoRoot, "build", "server", "index.mjs")],
-  outfile: path.join(distRoot, "server", "index.mjs"),
+  entryPoints: ["index", "coordinator-host","helper-check"].map(name => path.join(repoRoot, "build", "server", `${name}.mjs`)),
+  outdir: path.join(distRoot, "server"),
+  outExtension: { ".js": ".mjs" },
   bundle: true,
   platform: "node",
   format: "esm",
@@ -50,6 +51,7 @@ copyFile(
   path.join(repoRoot, "overlay", "config", "default-policy.json"),
   path.join(distRoot, "config", "default-policy.json"),
 );
+copyFile(path.join(repoRoot,"overlay","config","example-restricted-policy.json"),path.join(distRoot,"config","example-restricted-policy.json"));
 copyFile(
   path.join(repoRoot, "overlay", "skills", "computer-custom", "SKILL.md"),
   path.join(distRoot, "skills", "computer-custom", "SKILL.md"),
@@ -74,7 +76,7 @@ copyFile(
   path.join(repoRoot, "scripts", "helper-build-id.mjs"),
   path.join(distRoot, "scripts", "helper-build-id.mjs"),
 );
-for (const script of ["uac-secure-desktop.ps1", "write-provenance.mjs"]) {
+for (const script of ["uac-secure-desktop.ps1", "write-provenance.mjs","activate-helper-install.ps1"]) {
   copyFile(path.join(repoRoot, "scripts", script), path.join(distRoot, "scripts", script));
 }
 // Elevation is built and signed locally. Ship its build inputs as well as the
@@ -109,7 +111,7 @@ writeJson(path.join(distRoot, ".codex-plugin", "plugin.json"), {
   name: "computer-custom",
   version: packageMetadata.version,
   description:
-    "Self-contained Windows computer control with policy gates. No other runtime required.",
+    "Explicit Windows automation with prepared batches, shared Snooze and a signed UIAccess helper.",
   author: {
     name: "0langa",
     email: "plugins@0langa.dev",
@@ -118,14 +120,14 @@ writeJson(path.join(distRoot, ".codex-plugin", "plugin.json"), {
   homepage: "https://github.com/0langa/computer-custom",
   repository: "https://github.com/0langa/computer-custom",
   license: "MIT",
-  keywords: ["computer-use", "windows", "automation", "policy", "codex"],
+  keywords: ["computer-use", "windows", "automation", "batches", "codex"],
   skills: "./skills/",
   mcpServers: "./.codex-mcp.json",
   interface: {
     displayName: "Computer Custom",
-    shortDescription: "Policy-controlled Windows app automation.",
+    shortDescription: "Prepared Windows batches with countdown and Snooze.",
     longDescription:
-      "Computer Custom drives Windows directly through its own MCP server and native helper: screen, mouse, keyboard, windows and the accessibility tree, behind configurable policy gates, confirmations and a redacted audit trail. It does not require any provider's bundled computer-use runtime.",
+      "Select Computer Custom for prepared desktop batches, shared countdown/Snooze, UIAccess or saved local flows. Prefer bundled Computer for ordinary desktop work. Custom runs its own MCP server and native Windows helper; host authorization stays authoritative.",
     developerName: "0langa",
     category: "Developer Tools",
     capabilities: ["Interactive", "Read", "Write"],
@@ -133,9 +135,9 @@ writeJson(path.join(distRoot, ".codex-plugin", "plugin.json"), {
     privacyPolicyURL: "https://github.com/0langa/computer-custom#privacy",
     termsOfServiceURL: "https://github.com/0langa/computer-custom#terms",
     defaultPrompt: [
-      "Inspect an app window safely",
-      "Automate a Windows workflow with policy gates",
-      "List targetable Windows apps",
+      "Use Computer Custom to prepare a desktop batch",
+      "Run my saved Computer Custom flow",
+      "Check Computer Custom UIAccess status",
     ],
     brandColor: "#0F766E",
     composerIcon: "./assets/icon.png",
@@ -163,7 +165,7 @@ writeJson(path.join(distRoot, ".claude-plugin", "plugin.json"), {
   name: "computer-custom",
   version: packageMetadata.version,
   description:
-    "Self-contained Windows computer control with policy gates. No other runtime required.",
+    "Explicit Windows automation with prepared batches, shared Snooze and a signed UIAccess helper.",
   author: {
     name: "0langa",
     email: "plugins@0langa.dev",
@@ -172,7 +174,7 @@ writeJson(path.join(distRoot, ".claude-plugin", "plugin.json"), {
   homepage: "https://github.com/0langa/computer-custom",
   repository: "https://github.com/0langa/computer-custom",
   license: "MIT",
-  keywords: ["computer-use", "windows", "automation", "policy", "claude-code"],
+  keywords: ["computer-use", "windows", "automation", "batches", "claude-code"],
   skills: "./skills/",
   mcpServers: "./.mcp.json",
 });

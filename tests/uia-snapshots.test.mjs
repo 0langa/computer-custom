@@ -20,6 +20,9 @@ test('observations of different windows coexist; refreshing one invalidates only
     assert.equal(resolved.target.handle,ready.windows[0].handle);
     assert.equal(resolved.target.pid,ready.pid);
     assert.equal(resolved.target.processStartTime,ready.processStartTime);
+    await assert.rejects(helper.call('invoke_element',{elementId:first.root.elementId,prepared:true,
+      target:{handle:ready.windows[1].handle,pid:ready.pid,processStartTime:ready.processStartTime}}),
+      e=>e.code==='STALE_HANDLE');
     await read(0);
     await assert.rejects(helper.call('resolve_element',{elementId:first.root.elementId}),e=>e.code==='STALE_HANDLE');
     const retained=(await helper.call('resolve_element',{elementId:second.root.elementId})).result;

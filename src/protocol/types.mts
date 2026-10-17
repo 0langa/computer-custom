@@ -13,11 +13,11 @@ export const PROTOCOL_VERSION = 1;
  * Power level the helper is running at.
  *
  * - `medium` — spawned directly by the server. Reaches ordinary app windows.
- * - `high`   — started through the scheduled task. Also reaches elevated app
+ * - `high`   — signed installed UIAccess helper, launched by ShellExecute. Reaches elevated app
  *              windows (installers, regedit, taskmgr).
  *
- * Neither reaches system-level UI. The UAC consent box is system-level and is
- * never targetable; see docs/REBUILD-DESIGN.md section 6.
+ * Neither operates the secure input desktop. Matching consent on the ordinary
+ * desktop depends on actual UIAccess and observed Windows behavior.
  */
 export type HelperPowerLevel = "medium" | "high";
 

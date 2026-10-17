@@ -29,11 +29,12 @@ describe("Computer Custom runtime", () => {
     assert.doesNotMatch(skill, /globalThis\.sky/);
 
     // The guidance an agent actually needs to use this correctly.
-    assert.match(skill, /ui_tree/);
-    assert.match(skill, /truncated/);
-    assert.match(skill, /UIPI_BLOCKED/);
+    assert.match(skill, /observe/);
+    assert.match(skill, /truncat/);
+    assert.match(skill, /prepare_batch/);
+    assert.match(skill, /wait_batch/);
     assert.match(skill, /SECURE_DESKTOP/);
-    assert.match(skill, /Never write a confirmation phrase yourself/i);
+    assert.match(skill, /without inventing confirmation phrases/i);
   });
 
   it("wraps the package-exported sky without a legacy client file", async () => {

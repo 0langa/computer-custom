@@ -15,6 +15,7 @@ internal static class ScreenCapture
 {
     public static CaptureResult Capture(int? x, int? y, int? width, int? height)
     {
+        DesktopGuard.EnsureInteractiveDesktop();
         var virtualX = Win32.GetSystemMetrics(Win32.SM_XVIRTUALSCREEN);
         var virtualY = Win32.GetSystemMetrics(Win32.SM_YVIRTUALSCREEN);
         var virtualWidth = Win32.GetSystemMetrics(Win32.SM_CXVIRTUALSCREEN);

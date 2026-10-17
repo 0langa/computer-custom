@@ -145,6 +145,8 @@ internal static class WindowInspector
             Win32.ShowWindow(hwnd, Win32.SW_RESTORE);
         }
 
+        if (Win32.GetForegroundWindow()==hwnd)return;
+        var started = Stopwatch.GetTimestamp();
         if (Win32.SetForegroundWindow(hwnd))
         {
             // Activation crosses input queues asynchronously. WM_NULL waits
@@ -154,13 +156,19 @@ internal static class WindowInspector
             // A sent WM_NULL can run while activation is still being routed.
             // Check the result itself; never turn a transient null foreground
             // into a failed batch, or inject into the previous window.
-            var started = Stopwatch.GetTimestamp();
+            var reconciled=false;
             do
             {
                 if (Win32.GetForegroundWindow() == hwnd) return;
+                // A provider invocation can finish by restoring its old
+                // window's activation after our first foreground request.
+                // Reconcile activation once, without replaying any input.
+                if(!reconciled&&Stopwatch.GetElapsedTime(started).TotalMilliseconds>=25){
+                    reconciled=true;Win32.SetForegroundWindow(hwnd);
+                }
                 Thread.Sleep(1);
             } while (Stopwatch.GetElapsedTime(started).TotalMilliseconds < 200);
-            throw new HelperOperationException("FOCUS_FAILED", "The intended window did not acquire focus within 200ms.");
+            throw new HelperOperationException("FOCUS_FAILED", $"The intended window {hwnd} did not acquire focus within 200ms; actual foreground={Win32.GetForegroundWindow()}.");
         }
 
         // SetForegroundWindow silently refuses when the calling process does

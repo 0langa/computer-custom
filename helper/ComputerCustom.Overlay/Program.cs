@@ -24,6 +24,7 @@ internal static class Program
     private static readonly List<BorderWindow> Borders = [];
     private static HotkeySink? _sink;
     private static RippleLayer? _ripples;
+    private static NoticeWindow? _notice;
 
     [STAThread]
     private static void Main()
@@ -85,6 +86,24 @@ internal static class Program
                 if (root.TryGetProperty("state", out var state))
                 {
                     Apply(OverlayState.Parse(state.GetString()));
+                }
+
+                if(root.TryGetProperty("notice",out var notice))
+                {
+                    var value=notice.Clone();
+                    var requestId=root.GetProperty("requestId").GetString();
+                    Invoke(()=>{
+                        _notice?.Dispose();_notice=new NoticeWindow(value);_notice.Show();
+                        Emit(new{@event="notice-shown",requestId,batchId=_notice.BatchId,handle=_notice.Handle.ToInt64(),visible=_notice.Visible});
+                    });
+                }
+                if(root.TryGetProperty("hideNotice",out var hideNotice))
+                {
+                    var batchId=hideNotice.GetString();var requestId=root.GetProperty("requestId").GetString();
+                    Invoke(()=>{
+                        if(_notice is { } current && current.BatchId==batchId){current.Hide();current.Dispose();_notice=null;}
+                        Emit(new{@event="notice-hidden",requestId,batchId,visible=false});
+                    });
                 }
 
                 if (root.TryGetProperty("ripple", out var ripple)

@@ -1,240 +1,124 @@
 # Computer Custom
 
-Windows computer control for Claude Code and Codex, with policy gates you own.
+Prepared Windows desktop automation for Codex and Claude Code. Prefer bundled
+Computer for ordinary desktop work; select Custom for prepared batches with a
+countdown/Snooze, the signed UIAccess helper, or saved local flows.
 
-It ships its own MCP server and a native helper. It does **not** need any
-provider's bundled computer-use runtime, and it talks to nothing but this
-machine.
+## Execution
 
-## What it does
+Read `status`, choose a window from `list_windows`, and use `observe` without
+focusing. Prepare ordered actions with window/process identities and
+window-relative coordinates. Five actions queue automatically; `flush:true`
+queues a smaller batch. Single flushed actions execute immediately. Multiple
+actions get a visible five-second countdown with Snooze/Cancel, then execute
+automatically for at most ten seconds. `wait_batch` returns progress
+or a shared `resumeAt` when snoozed. Do not replay completed actions.
 
-- Reads the screen: screenshots, window list, and the Windows accessibility
-  tree with real control names and bounds.
-- Drives the machine: mouse, keyboard, drag, scroll, clipboard, and direct
-  invocation of accessibility elements.
-- Runs commands and touches files directly: `run_shell` returns real output
-  instead of pixels, and there are proper file read, write and delete tools.
-- Replays saved **flows**: JavaScript files with real loops and conditions, for
-  the sequences you run over and over.
-- Gates what matters: read-only calls pass, risky ones ask, a short list is
-  blocked outright. Every decision is recorded, with secrets redacted.
+Known dependencies can have an `expect` condition on an observed control's
+value, name, focus or enabled state. The batch waits locally for that state,
+within its execution deadline, before continuing. UIA providers can return
+before their visible effects; use a condition when a following step depends on
+those effects.
+
+For navigation, `invoke_element` can resolve an exact live `selector` with name,
+role or automationId. `wait_for` waits for a visible control after a page change.
+Both run locally; they do not replay input. Selectors that match multiple controls
+are rejected before invocation. Individual UIA requests retain a two-second cap.
+
+Legacy click/key/type/focus tools join the same queue. Observations and
+`flush_batch` flush pending work. Saved flows also flush before sleeps and
+successful completion. Known flow steps stay together beyond the threshold until
+a dependency flush. Commands/files use direct tools; local JavaScript flows
+run as trusted user code and are not sandboxed.
 
 ## Architecture
 
-```
-Claude Code ─┐
-             ├─ MCP (stdio) ─► computer-custom server ─ named pipe ─► native helper
-Codex ───────┘                 tools, policy, audit,                  SendInput,
-                               confirmations                          UI Automation,
-                                                                      screen capture
-```
+Codex/Claude → MCP stdio server → authenticated local coordinator pipe →
+one queue per Windows user/session → isolated native input, UIA and capture
+workers. A separate WinForms overlay shows countdowns and handles Snooze/Cancel.
 
-The server makes every decision and never touches the OS. The helper touches
-the OS and never makes a decision. They are separate processes so the helper
-can later run at a higher privilege than the client that started the server.
+The coordinator serializes clients. Native input has a Windows session mutex,
+a maximum ten-second lease, an independent release watchdog, and peer/parent
+lifetime checks. UIA and capture have separate workers and two-second observation
+deadlines. Window capture uses Windows.Graphics.Capture, including occluded
+windows. Combined observations retain useful partial results.
 
-See [docs/REBUILD-DESIGN.md](docs/REBUILD-DESIGN.md) for the design and
-[docs/PROTOCOL.md](docs/PROTOCOL.md) for the wire contract.
+See [the current architecture and API](docs/PREPARED-DESKTOP.md) and
+[the native protocol](docs/PROTOCOL.md). Earlier rebuild design notes are historical.
 
-## Install
+## Input and authorization
 
-```powershell
-codex plugin add computer-custom@0langas-plugins
-claude plugin install computer-custom@0langas-plugins
-```
+- `block`: physical mouse/keyboard input is suppressed only during execution.
+- `ignore`: user input remains enabled; activity does not abort dispatch.
+  Concurrent user input can affect the application.
+- Snooze pauses all Custom clients for five minutes.
+- Ctrl+Alt+Del releases Windows BlockInput. The overlay hotkey may not be
+  received while physical input is blocked.
 
-Restart the client after install or update so the plugin cache reloads.
+Host/model authorization is authoritative. Default policy adds no keyword,
+title or confirmation-phrase gates. Already-authorized work can include matching
+admin consent. This helper cannot operate the secure desktop and never changes
+UAC settings automatically. Actual UIAccess/integrity and errors determine reach.
 
-Both clients start the bundled MCP server from the plugin manifest. No manual
-`config.toml` or global MCP entry is needed.
+Optional explicit local restrictions remain available in
+`config/example-restricted-policy.json`. Audit records are local and redact
+common secrets. Custom registers no hook on bundled Computer.
 
-## Policy
+## Install and settings
 
-Point `COMPUTER_CUSTOM_POLICY` at your own file to change any of this. Both
-providers read the same one.
+Install/update through the host's plugin flow, then restart the client to load
+the new package. Both providers launch the bundled MCP server; no global MCP
+configuration is needed. Build output is `dist/computer-custom`.
 
-Defaults:
+For UIAccess, inspect `scripts/install-elevated-helper.ps1 -DryRun`, then run
+the installer from an elevated PowerShell. It builds and signs the helper,
+trusts a local code-signing certificate, and installs into Program Files.
+A complete version is verified before an atomic activation-pointer switch;
+older running versions are retained. Startup uses ShellExecute. The installer
+verifies actual UIAccess before activation and leaves UAC settings unchanged.
 
-- Read-only tools pass with no gate.
-- Input tools are classified together with the **focused application**, so a
-  rule about installers, admin tools or security software can match what is
-  actually being typed into. A click in an ordinary app stays ungated.
-- Irreversible tools gate on their name alone, whatever their arguments say.
-- Terminal access is **not** blocked. Destructive commands confirm; ordinary
-  ones run.
-- Drive formatting and credential exfiltration are hard-blocked. A hard block
-  is not a prompt; only editing the policy lifts it.
+UIAccess is used when installed; set `COMPUTER_CUSTOM_ELEVATED=0` to opt out.
+Uninstall with the same script's `-Uninstall` option after closing Custom sessions.
 
-Confirmation uses MCP elicitation where the client supports it. Where it does
-not, the call is refused with instructions to get an exact phrase from the
-user. The agent is told never to invent that phrase.
+`desktop_settings` persists batch threshold, notice, Snooze, input mode and
+control duration outside the plugin cache. Defaults: 5 actions / 5 seconds /
+5 minutes / block / 10 seconds. Data lives under
+`%LOCALAPPDATA%/computer-custom`, or `COMPUTER_CUSTOM_DATA`.
+Point `COMPUTER_CUSTOM_FLOWS` outside the plugin cache to preserve your flows.
 
-## Flows
-
-A flow is a JavaScript file that exports a default async function. It receives a
-context object with one method per tool, plus `args`, `log` and `sleep`.
-
-```js
-export const description = "Opens the editor and saves a file";
-
-export default async function (cc) {
-  const windows = await cc.list_windows();
-  cc.log(`${windows.length} windows`);
-  await cc.key({ keys: ["ctrl", "s"] });
-  return { saved: true };
-}
-```
-
-Run it with `run_flow`, list them with `list_flows`. Flows live in
-`COMPUTER_CUSTOM_FLOWS`, which defaults to the plugin's own `flows/`. **Point it
-at a directory of your own**, or a plugin update will take your flows with it.
-
-Every tool call inside a flow passes the same policy gate as a direct call, so a
-flow can be blocked or can stop to ask you, and each step lands in the audit.
-
-**The JavaScript itself is not sandboxed.** A flow is your own code running in
-the server process, with everything Node can do, exactly like a script you would
-run yourself. Anyone who can write a file into the flows directory can run code
-as you. Treat that directory like your own scripts folder.
-
-## Driving elevated windows
-
-By default the helper runs at your normal privilege, so windows belonging to
-elevated programs — an installer after it appears, regedit, Task Manager —
-return `UIPI_BLOCKED`.
-
-To reach them, install the elevated helper. Read what it will do first:
+## Development and verification
 
 ```powershell
-.\scripts\install-elevated-helper.ps1 -DryRun
-```
-
-Then, from an elevated PowerShell:
-
-```powershell
-.\scripts\install-elevated-helper.ps1
-```
-
-It creates a **self-signed certificate trusted on this machine only** (no
-certificate authority, no cost), signs a build of the helper whose manifest
-requests `uiAccess`, and installs it into Program Files. Admin rights are needed
-once, for that. Nothing is registered to run in the background.
-
-After that the plugin launches the helper itself through ShellExecute, which is
-the only path that grants UIAccess — `CreateProcess` refuses a `uiAccess` binary
-outright, so a scheduled task cannot do it either. **No UAC prompt appears**;
-granting UIAccess to a signed binary in a protected folder is what the mechanism
-is for.
-
-There is nothing to turn on. **Elevation is the default**, so every session uses
-the elevated helper once it is installed. You call this plugin because you want
-more reach than the ordinary computer-use tools give you; the weaker mode should
-not be the one you get by accident.
-
-Opt **out** for a session with `COMPUTER_CUSTOM_ELEVATED=0`. Check either way
-with:
-
-```bash
-npm run verify:elevation
-```
-
-It checks every prerequisite, starts the helper, and with `--focus` proves the
-point by bringing a real elevated window to the front. Expect `power: high` and
-`uiAccess: true`.
-
-Undo everything with `.\scripts\install-elevated-helper.ps1 -Uninstall`.
-
-If you ask for elevation without installing it, the plugin does **not** fail and
-does **not** pretend: it starts the normal helper and `status` tells you what
-happened and how to fix it.
-
-Your client is never elevated. Only the helper is, which is the point of keeping
-them in separate processes.
-
-## The UAC prompt, and the one setting that changes it
-
-By default Windows draws the UAC consent prompt on the **secure desktop**: a
-separate desktop object no application can reach. That is why nothing can
-automate a UAC prompt, at any privilege, signed or not.
-
-Check what your machine actually does. This needs no admin rights and changes
-nothing:
-
-```powershell
-.\scripts\uac-secure-desktop.ps1
-```
-
-`status` reports the same thing as `uacPromptOnSecureDesktop`, so the agent can
-tell you the truth rather than guessing.
-
-Turning the secure desktop off moves those prompts onto the ordinary desktop,
-where the elevated helper can click them:
-
-```powershell
-.\scripts\uac-secure-desktop.ps1 -Disable -Minutes 20 -IUnderstand
-```
-
-**Understand what that costs.** It does not grant the capability to this
-plugin. It grants it to *everything* running on the machine. The secure desktop
-exists precisely so software cannot approve its own elevation prompts; with it
-off, the gap between "runs as me" and "runs as administrator" is a click any
-process can make. That is a real reduction in your machine's security.
-
-Which is why the plugin never changes it, the script refuses without
-`-IUnderstand`, and `-Minutes` schedules the restore so a forgotten setting
-cannot leave you exposed. Put it back at any time with `-Enable`.
-
-## Capability boundaries
-
-Honest limits, enforced by Windows rather than by this plugin:
-
-- The helper drives windows at its own privilege level or below. Elevated
-  windows return `UIPI_BLOCKED` until the elevated helper above is installed.
-- **While the secure desktop is on**, the UAC consent prompt is unreachable by
-  anything, at any privilege, signed or not. Calls during a prompt return
-  `SECURE_DESKTOP`.
-- **With the secure desktop off and the signed `uiAccess` helper installed,
-  input does reach it.** Measured, not assumed: a coordinate click on the
-  consent prompt granted elevation. Both halves are required — neither the
-  signing nor the setting achieves it alone.
-  `ui_tree` still returns nothing useful for the prompt, because it runs at
-  system integrity, so it has to be driven from a screenshot by coordinates.
-  Answering a consent prompt always requires confirmation first.
-- After a plugin update the installed elevated helper is still the old one: it
-  is signed separately and nothing touches it automatically. `status` says so,
-  rather than letting elevated sessions quietly run stale code. It compares a
-  hash of the helper's source, not file dates — dates were tried first and cried
-  wolf after every reinstall.
-
-## Development
-
-```powershell
-npm install
+npm ci
+npm run package
 npm test
 npm run scan:public
-npm run package
-npm run verify:packaged
 ```
 
-- `npm test` compiles `src/*.mts` and runs the Node test suite.
-- `npm run package` bundles the server and publishes the helper into
-  `dist/computer-custom`.
-- `npm run verify:packaged` drives that package as a real MCP client over stdio
-  from `C:\`, the way Claude Code and Codex do. It is the check that proves the
-  gates refuse: it declines a delete, tries a wrong phrase, then the exact one,
-  and asserts the file survived or went each time. Pass a plugin root to test an
-  installed copy instead.
-- Building the helper needs the .NET SDK: `dotnet build helper/ComputerCustom.Helper`.
-- Do not edit `dist/` by hand.
+Packaging builds the MCP bundles and native helpers with actual binary hashes.
+The .NET 10 SDK and Node 22+ are development prerequisites. Desktop integration
+tests share real Windows UIA/hotkey resources and run serially; explicit
+competing-client tests retain their intentional concurrency.
+
+Live tests are opt-in and affect clearly labelled fixture windows:
+
+```powershell
+node scripts/verify-mcp-batch.mjs 1,0 --focus-stress
+node scripts/verify-physical-input.mjs block
+node scripts/verify-physical-input.mjs ignore
+```
+
+Physical tests wait for START and require a human to move/type. Evidence and
+measurements are saved locally in `.cache/evidence`; a successful SendInput
+return alone is not proof of physical suppression or application effects.
 
 ## Privacy
 
-Nothing leaves this machine. The pipe between server and helper is local, its
-ACL names only the current user, and the helper proves a per-session token
-before the server will talk to it. Audit entries are local and redact common
-secret keys and token-like values.
+Desktop traffic stays on local pipes. Native workers authenticate with per-run
+tokens and user-scoped pipe ACLs; coordinator clients use challenge/HMAC proofs.
+Flows and shell tools can access the network when the requested user script does.
 
 ## Terms
 
-Use this plugin only for automation you are authorised to perform on machines
-you control. Provider and runtime restrictions still apply where enforced.
+Use this plugin for automation you are authorized to perform on machines you
+control. Host/model restrictions still apply.

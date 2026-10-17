@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { execFileSync } from "node:child_process";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const blocked = [
@@ -19,7 +20,12 @@ const ignoredDirs = new Set([
 ]);
 const findings = [];
 
-for (const file of listFiles(repoRoot)) {
+// Scan what can actually enter the package/repository. Walking the whole
+// directory included ignored test logs and visited node_modules before filtering.
+const candidates=execFileSync('git',['-C',repoRoot,'ls-files','--cached','--others','--exclude-standard','-z'],{encoding:'utf8',windowsHide:true});
+for (const relativeFile of new Set(candidates.split('\0').filter(Boolean))) {
+  const file=path.join(repoRoot,relativeFile);
+  if(!fs.existsSync(file)||!fs.statSync(file).isFile())continue;
   const relative = path.relative(repoRoot, file).replaceAll("\\", "/");
   if (isIgnored(relative)) {
     continue;
@@ -35,19 +41,6 @@ for (const file of listFiles(repoRoot)) {
 if (findings.length > 0) {
   console.error(findings.join("\n"));
   process.exitCode = 1;
-}
-
-function* listFiles(root) {
-  for (const entry of fs.readdirSync(root, { withFileTypes: true })) {
-    const fullPath = path.join(root, entry.name);
-    if (entry.isDirectory()) {
-      yield* listFiles(fullPath);
-      continue;
-    }
-    if (entry.isFile()) {
-      yield fullPath;
-    }
-  }
 }
 
 function isIgnored(relative) {

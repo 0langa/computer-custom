@@ -15,19 +15,26 @@ import { type ChildProcess, spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { randomUUID } from "node:crypto";
 
 export type OverlayState = "idle" | "observing" | "acting" | "waiting";
 
 export type OverlayOptions = {
   executablePath?: string | undefined;
   onPanic?: (() => void) | undefined;
+  onSnooze?: ((batchId:string)=>void) | undefined;
+  onCancel?: ((batchId:string)=>void) | undefined;
 };
+export type DesktopNotice={batchId:string;title:string;actions:number;countdownMs:number;maxControlMs:number;inputMode:"block"|"ignore";snoozeMs?:number;x?:number;y?:number};
+type NoticeAck={batchId?:string;visible?:boolean;handle?:number};
 
 export class Overlay {
   readonly #options: OverlayOptions;
   #child: ChildProcess | undefined;
   #state: OverlayState = "idle";
   #failed = false;
+  #ready = false;
+  readonly #pending = new Map<string,{event:string;resolve:(value:NoticeAck)=>void;reject:(error:Error)=>void;timer:NodeJS.Timeout}>();
 
   constructor(options: OverlayOptions = {}) {
     this.#options = options;
@@ -61,15 +68,21 @@ export class Overlay {
     try {
       const child = spawn(executable, {
         stdio: ["pipe", "pipe", "ignore"],
-        windowsHide: true,
+        // A WinExe has no console to hide. Hiding its first window also hid
+        // the user's visible overlay, just as it did the original fixture.
+        windowsHide: false,
       });
 
       child.on("error", () => {
+        if(this.#child!==child)return;
         this.#failed = true;
         this.#child = undefined;
+        this.#rejectPending();
       });
       child.on("exit", () => {
+        if(this.#child!==child)return;
         this.#child = undefined;
+        this.#ready=false;this.#rejectPending();
       });
 
       // Writing to a child that has died raises EPIPE asynchronously, as a
@@ -81,6 +94,7 @@ export class Overlay {
 
       let buffered = "";
       child.stdout?.on("data", (chunk: Buffer) => {
+        if(this.#child!==child)return;
         buffered += chunk.toString();
         const lines = buffered.split("\n");
         buffered = lines.pop() ?? "";
@@ -90,6 +104,7 @@ export class Overlay {
       });
 
       this.#child = child;
+      this.#ready = false;
       this.#send({ state: this.#state });
     } catch {
       this.#failed = true;
@@ -122,6 +137,33 @@ export class Overlay {
     }
 
     this.#child = undefined;
+    this.#ready=false;this.#rejectPending();
+  }
+
+  async showNotice(notice:DesktopNotice):Promise<NoticeAck>{
+    this.start();
+    if(!this.running)throw new Error("Desktop notification is unavailable. Build/enable the overlay before preparing input.");
+    if(!this.#ready)await this.#request("ready");
+    return this.#request("notice-shown",{notice});
+  }
+
+  async hideNotice(batchId:string):Promise<NoticeAck>{
+    if(!this.running)throw new Error("Desktop notification closed before takeover.");
+    return this.#request("notice-hidden",{hideNotice:batchId});
+  }
+
+  #request(event:string,payload?:Record<string,unknown>):Promise<NoticeAck>{
+    return new Promise((resolve,reject)=>{
+      const id=randomUUID();
+      const timer=setTimeout(()=>{this.#pending.delete(id);reject(new Error(`Desktop notification did not report ${event}.`));},3000);
+      this.#pending.set(id,{event,resolve,reject,timer});
+      if(payload)this.#send({...payload,requestId:id});
+    });
+  }
+
+  #rejectPending():void{
+    for(const pending of this.#pending.values()){clearTimeout(pending.timer);pending.reject(new Error("Desktop notification process stopped."));}
+    this.#pending.clear();
   }
 
   /**
@@ -137,7 +179,17 @@ export class Overlay {
     }
 
     try {
-      const event = JSON.parse(line) as { event?: string };
+      const event = JSON.parse(line) as {event?:string;requestId?:string;batchId?:string;visible?:boolean;handle?:number};
+      if(event.event==="ready")this.#ready=true;
+      for(const [id,pending] of this.#pending){
+        if(pending.event===event.event&&(event.event==="ready"||event.requestId===id)){
+          clearTimeout(pending.timer);this.#pending.delete(id);pending.resolve(event);
+        }
+      }
+      if(typeof event.batchId==="string"){
+        if(event.event==="snooze")this.#options.onSnooze?.(event.batchId);
+        if(event.event==="cancel")this.#options.onCancel?.(event.batchId);
+      }
       if (event.event === "panic") {
         this.#options.onPanic?.();
       }

@@ -1,15 +1,1 @@
-{
-  "hooks": {
-    "PreToolUse": [
-      {
-        "matcher": "mcp__computer-use__.*",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/computer-use-guard.mjs\""
-          }
-        ]
-      }
-    ]
-  }
-}
+{"hooks": {}}

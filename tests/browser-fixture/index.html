@@ -1,0 +1,22 @@
+<!doctype html><meta charset="utf-8"><title>Computer Custom browser fixture</title>
+<style>body{font:18px sans-serif;padding:20px}textarea{display:block;width:900px;height:85px;margin:8px 0 18px}canvas{border:2px solid #222;touch-action:none}</style>
+<h1>Computer Custom browser fixture</h1>
+<label>Keyboard input<textarea aria-label="Keyboard input"></textarea></label>
+<label>Keyboard events<textarea aria-label="Keyboard events" readonly></textarea></label>
+<canvas width="800" height="250" aria-label="Drawing surface" tabindex="0"></canvas>
+<label>Pointer events<textarea aria-label="Pointer events" readonly></textarea></label>
+<script>
+const input=document.querySelector('[aria-label="Keyboard input"]'),keyboard=document.querySelector('[aria-label="Keyboard events"]');
+const keys=[];for(const type of ['keydown','keyup'])input.addEventListener(type,event=>{
+  keys.push({type,key:event.key,code:event.code,keyCode:event.keyCode,ctrl:event.ctrlKey});keyboard.value=JSON.stringify(keys);
+});
+const canvas=document.querySelector('canvas'),context=canvas.getContext('2d'),pointer=document.querySelector('[aria-label="Pointer events"]');
+const events=[];let down=false;
+for(const type of ['pointerdown','pointermove','pointerup'])canvas.addEventListener(type,event=>{
+  const x=event.offsetX,y=event.offsetY;
+  if(type==='pointerdown'){down=true;canvas.setPointerCapture(event.pointerId);context.beginPath();context.moveTo(x,y);}
+  if(type==='pointermove'&&down){context.lineWidth=5;context.strokeStyle='#cf174f';context.lineTo(x,y);context.stroke();}
+  if(down||type==='pointerup'){events.push({type,x,y});pointer.value=JSON.stringify(events);}
+  if(type==='pointerup')down=false;
+});
+</script>

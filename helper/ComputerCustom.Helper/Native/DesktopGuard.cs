@@ -6,9 +6,8 @@ namespace ComputerCustom.Helper.Native;
 /// Detects the secure desktop.
 ///
 /// When Windows shows a UAC consent prompt it switches the input desktop to
-/// Winlogon's secure desktop. No amount of privilege on our side reaches it:
-/// that prompt is system integrity and living on a desktop only Windows
-/// processes may open. See docs/REBUILD-DESIGN.md section 6.
+/// Winlogon's secure desktop. Our normal/high-integrity UIAccess process is
+/// attached to Default and cannot operate that separate input desktop.
 ///
 /// Detecting it matters because otherwise input is silently swallowed. The
 /// agent would go on clicking coordinates that reach nothing and conclude the

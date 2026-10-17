@@ -49,8 +49,12 @@ internal static class Operations
     private static object Ping()
     {
         var integrity = WindowInspector.SelfIntegrity();
+        using var process=System.Diagnostics.Process.GetCurrentProcess();
+        using var identity=System.Security.Principal.WindowsIdentity.GetCurrent();
         return new
         {
+            pid=Environment.ProcessId,sessionId=process.SessionId,userSid=identity.User?.Value,
+            capabilities=new { preparedInput=true,windowCapture=true,boundedObservation=true },
             version = typeof(Operations).Assembly.GetName().Version?.ToString() ?? "0.0.0",
             protocol = Protocol.Version,
             // The wire contract speaks of medium and high. Anything above high
@@ -186,16 +190,25 @@ internal static class Operations
 
     private static Outcome InvokeElement(JsonElement args)
     {
-        PrepareForInput();
-        UiTree.Invoke(RequiredString(args, "elementId"));
+        var target = PrepareElement(args);
+        UiTree.Invoke(RequiredString(args, "elementId"), target);
         return new Outcome(new { invoked = true });
     }
 
     private static Outcome SetElementValue(JsonElement args)
     {
-        PrepareForInput();
-        UiTree.SetValue(RequiredString(args, "elementId"), RequiredString(args, "value"));
+        var target = PrepareElement(args);
+        UiTree.SetValue(RequiredString(args, "elementId"), RequiredString(args, "value"), target);
         return new Outcome(new { set = true });
+    }
+
+    private static InputTarget? PrepareElement(JsonElement args)
+    {
+        DesktopGuard.EnsureInteractiveDesktop();
+        if (OptionalBool(args, "prepared") == true)
+            return TargetResolver.Resolve(args).Target;
+        UserActivity.WaitForQuiet();
+        return null;
     }
 
     private static Outcome ClipboardSet(JsonElement args)

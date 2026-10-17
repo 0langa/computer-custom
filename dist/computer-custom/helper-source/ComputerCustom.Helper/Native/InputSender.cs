@@ -180,8 +180,13 @@ internal static class InputSender
         }
     }
 
-    private static Win32.INPUT KeyEvent(ushort vk, ushort scan, uint flags) =>
-        new()
+    private static Win32.INPUT KeyEvent(ushort vk, ushort scan, uint flags)
+    {
+        // Chromium/Electron shortcuts also inspect the physical key code from
+        // the scan field. A virtual key alone delivers key="," but code="".
+        // Unicode typing keeps its UTF-16 scan value and does not use this path.
+        if(vk!=0&&scan==0)scan=(ushort)Win32.MapVirtualKeyW(vk,0);
+        return new()
         {
             type = Win32.INPUT_KEYBOARD,
             U = new Win32.InputUnion
@@ -194,6 +199,7 @@ internal static class InputSender
                 },
             },
         };
+    }
 
     /// <summary>
     /// Types text as Unicode code points rather than virtual keys, so the

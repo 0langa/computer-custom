@@ -6,7 +6,8 @@ import {
   expandEnvironmentRoot,
   redactForAudit,
 } from "../build/policy.mjs";
-import policy from "../overlay/config/default-policy.json" with { type: "json" };
+// Explicit optional restrictions remain available; these are not the defaults.
+import policy from "../overlay/config/example-restricted-policy.json" with { type: "json" };
 
 describe("policy classifier", () => {
   it("blocks protected Windows roots", () => {

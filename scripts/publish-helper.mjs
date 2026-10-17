@@ -15,14 +15,15 @@ export function publishHelpers(root = repoRoot, run = execFileSync) {
   const backup = path.join(stage, 'previous');
   const sourceDir = path.join(root, 'helper', 'ComputerCustom.Helper');
   const sourceId = helperBuildId(sourceDir);
+  const overlayDir=path.join(root,'helper','ComputerCustom.Overlay'),overlaySourceId=helperBuildId(overlayDir);
   try {
     for (const project of ['ComputerCustom.Helper', 'ComputerCustom.Overlay']) {
       run('dotnet', ['publish', path.join(root, 'helper', project), '-c', 'Release',
         `-p:SourceRevisionId=${sourceId}`, '-o', stage, '--nologo', '-v', 'q'],
       { stdio: 'inherit', windowsHide: true });
     }
-    if (helperBuildId(sourceDir) !== sourceId) throw new Error('Helper source changed during publish');
-    writeProvenance(stage, sourceId);
+    if (helperBuildId(sourceDir) !== sourceId||helperBuildId(overlayDir)!==overlaySourceId) throw new Error('Native source changed during publish');
+    writeProvenance(stage, sourceId,overlaySourceId);
     // Preserve the previous complete publish if either build or replacement fails.
     if (fs.existsSync(destination)) fs.renameSync(destination, backup);
     try {

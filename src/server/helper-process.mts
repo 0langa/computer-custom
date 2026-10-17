@@ -31,6 +31,9 @@ const runFile = promisify(execFile);
 export type HelperProcessOptions = {
   /** Explicit path to the helper executable. Overrides discovery. */
   executablePath?: string | undefined;
+  elevated?: boolean;
+  /** Installer verification of a staged protected version before activation. */
+  installedExecutablePath?:string;
 };
 
 /** How the running helper was started, and anything the user should know. */
@@ -95,9 +98,18 @@ function readBuildId(file: string): string | undefined {
 }
 
 /** Where scripts/install-elevated-helper.ps1 puts the signed helper. */
-function installedHelperPath(): string {
-  const programFiles = process.env.ProgramFiles ?? "C:\Program Files";
-  return path.join(programFiles, "Computer Custom", "computer-custom-helper.exe");
+export function installedHelperPath(): string {
+  const programFiles = process.env.ProgramFiles ?? "C:/Program Files";
+  const root=path.join(programFiles,"Computer Custom"),pointer=path.join(root,"active.json");
+  if(fs.existsSync(pointer)){
+    const active=JSON.parse(fs.readFileSync(pointer,"utf8")) as {schema?:number;directory?:string};
+    if(active.schema!==1||!/^versions\/[a-f0-9]{16}-[a-f0-9]{8}$/.test(active.directory??""))
+      throw new HelperClientError("HELPER_UNAVAILABLE","Invalid installed helper version pointer. Reinstall the helper.");
+    const executable=path.join(root,active.directory!,"computer-custom-helper.exe");
+    if(!fs.existsSync(executable))throw new HelperClientError("HELPER_UNAVAILABLE","The active installed helper version is incomplete. Reinstall the helper.");
+    return executable;
+  }
+  return path.join(root,"computer-custom-helper.exe");
 }
 
 /**
@@ -212,7 +224,7 @@ export class HelperProcess {
     const pipeName = `computer-custom.${crypto.randomUUID()}`;
     const pipePath = `\\\\.\\pipe\\${pipeName}`;
 
-    if (wantsElevated()) {
+    if (this.#wantsElevated()) {
       const elevated = await this.#startElevated(pipeName, token, pipePath, generation);
       if (elevated) {
         return elevated;
@@ -262,9 +274,9 @@ export class HelperProcess {
     }
     this.#client = client;
     this.#startInfo = {
-      requested: wantsElevated() ? "elevated" : "normal",
+      requested: this.#wantsElevated() ? "elevated" : "normal",
       actual: "normal",
-      ...(wantsElevated()
+      ...(this.#wantsElevated()
         ? {
             notice:
               "Elevated start was requested but the signed helper is not installed at " +
@@ -297,7 +309,7 @@ export class HelperProcess {
     pipePath: string,
     generation: number,
   ): Promise<HelperClient | undefined> {
-    const installed = installedHelperPath();
+    const installed = this.#options.installedExecutablePath??installedHelperPath();
     if (!fs.existsSync(installed)) {
       return undefined;
     }
@@ -383,6 +395,8 @@ export class HelperProcess {
       ? lastError
       : new HelperClientError("HELPER_UNAVAILABLE", "Could not reach the helper");
   }
+
+  #wantsElevated():boolean{return this.#options.elevated??wantsElevated();}
 }
 
 /** The non-uiAccess helper that ships with the plugin, if it can be found. */

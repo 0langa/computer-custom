@@ -2,6 +2,10 @@
 
 _Design notes. Draft. 2026-09-19._
 
+Historical design notes. Current implementation and defaults are documented in
+[PREPARED-DESKTOP.md](PREPARED-DESKTOP.md). Scheduled-task startup and the original
+mandatory policy/confirmation design below have been superseded.
+
 ## 0. Decisions locked (2026-09-19)
 
 You picked. Here is what we build.

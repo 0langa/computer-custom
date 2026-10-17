@@ -3,6 +3,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { afterEach, describe, it } from "node:test";
 import { Overlay } from "../build/server/overlay.mjs";
+import { HelperProcess } from "../build/server/helper-process.mjs";
+import { BatchCoordinator } from "../build/server/batch-coordinator.mjs";
 
 const OVERLAY = path.resolve(
   "helper/ComputerCustom.Overlay/bin/Debug/net10.0-windows/computer-custom-overlay.exe",
@@ -31,6 +33,13 @@ function track(overlay) {
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 describe("overlay lifecycle", () => {
+  it("routes snooze and cancel events with the correct batch identity", () => {
+    const events=[];
+    const overlay=track(new Overlay({onSnooze:id=>events.push(['snooze',id]),onCancel:id=>events.push(['cancel',id])}));
+    overlay.handleEvent('{"event":"snooze","batchId":"one"}');
+    overlay.handleEvent('{"event":"cancel","batchId":"two"}');
+    assert.deepEqual(events,[['snooze','one'],['cancel','two']]);
+  });
   it("is on by default", () => {
     delete process.env.COMPUTER_CUSTOM_OVERLAY;
 
@@ -82,6 +91,46 @@ describe("overlay lifecycle", () => {
 });
 
 describe("overlay process", { skip: !fs.existsSync(OVERLAY) && "overlay not built" }, () => {
+  it("the real Snooze button defers batches from two owners", async () => {
+    delete process.env.COMPUTER_CUSTOM_OVERLAY;
+    const previousMode=process.env.COMPUTER_CUSTOM_ELEVATED;process.env.COMPUTER_CUSTOM_ELEVATED='0';
+    const helper=new HelperProcess({executablePath:path.resolve('dist/computer-custom/helper/computer-custom-helper.exe')});
+    let coordinator,resolveShown,resolveSnoozed;
+    const shown=new Promise(resolve=>resolveShown=resolve);
+    const snoozed=new Promise(resolve=>resolveSnoozed=resolve);
+    const overlay=track(new Overlay({executablePath:OVERLAY,onSnooze:()=>resolveSnoozed(coordinator.snooze())}));
+    coordinator=new BatchCoordinator({run:async()=>assert.fail('snoozed fixture must not take over'),
+      showNotice:async batch=>{resolveShown(await overlay.showNotice({batchId:batch.id,title:'Snooze wiring test',actions:batch.actions.length,
+        ...batch.settings,x:-1800,y:400}));},hideNotice:batch=>overlay.hideNotice(batch.id).then(()=>{})});
+    const actions=Array.from({length:2},()=>({op:'click',target:{handle:1,pid:2,processStartTime:'3'},args:{x:1,y:1}}));
+    const a=coordinator.prepare('a',{actions,flush:true}),b=coordinator.prepare('b',{actions,flush:true});
+    try {
+      const notice=await shown;
+      const tree=(await helper.call('ui_tree',{handle:notice.handle,interactiveOnly:false})).result;
+      const flatten=node=>[node,...node.children.flatMap(flatten)];
+      const button=flatten(tree.root).find(node=>node.automationId==='snooze');
+      assert.ok(button,'visible snooze button exposed through native accessibility');
+      await helper.call('invoke_element',{elementId:button.elementId,prepared:true,target:tree.target});
+      const resumeAt=await Promise.race([snoozed,sleep(2000).then(()=>{throw new Error('Snooze event missing');})]);
+      assert.equal(coordinator.status('a',a.id).state,'snoozed');
+      assert.equal(coordinator.status('a',a.id).resumeAt,resumeAt);
+      assert.equal(coordinator.status('b',b.id).resumeAt,resumeAt);
+    } finally {
+      coordinator.disconnect('a');coordinator.disconnect('b');helper.stop();
+      if(previousMode===undefined)delete process.env.COMPUTER_CUSTOM_ELEVATED;else process.env.COMPUTER_CUSTOM_ELEVATED=previousMode;
+    }
+  });
+  it("acknowledges a visible countdown and hides it before input begins", async () => {
+    delete process.env.COMPUTER_CUSTOM_OVERLAY;
+    const overlay=track(new Overlay({executablePath:OVERLAY}));
+    const shown=await overlay.showNotice({batchId:'notice-fixture',title:'Notification test',actions:5,countdownMs:15000,maxControlMs:10000,
+      inputMode:'block',x:-1800,y:400});
+    assert.equal(shown.batchId,'notice-fixture');
+    assert.equal(shown.visible,true);
+    assert.ok(shown.handle>0);
+    const hidden=await overlay.hideNotice('notice-fixture');
+    assert.equal(hidden.visible,false);
+  });
   it("starts, accepts commands, and stops", async () => {
     delete process.env.COMPUTER_CUSTOM_OVERLAY;
     const overlay = track(new Overlay({ executablePath: OVERLAY }));

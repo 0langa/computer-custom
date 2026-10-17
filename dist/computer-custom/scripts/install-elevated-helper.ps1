@@ -22,18 +22,16 @@
     WHAT THIS DOES ON ITS OWN
     It covers ordinary elevated windows: installers after they appear, regedit,
     Task Manager. It does NOT by itself make the UAC consent prompt
-    automatable, because that prompt is drawn on the secure desktop where
-    nothing can reach it.
+    automatable when that prompt is drawn on the secure desktop, which this
+    helper cannot operate.
 
-    Combined with uac-secure-desktop.ps1 -Disable, it does: with the prompt on
-    the ordinary desktop, a signed uiAccess helper can click it. That is two
-    deliberate steps, and the second one weakens the machine. Read that script
-    before using it.
+    Consent on the ordinary desktop depends on actual Windows configuration
+    and observed UIAccess capability. This installer never changes UAC policy.
 
     EVERYTHING HERE IS REVERSIBLE with -Uninstall.
 
 .PARAMETER Uninstall
-    Remove the scheduled task, the installed files and the certificate.
+    Remove installed versions, the certificate and any obsolete scheduled task.
 
 .PARAMETER DryRun
     Print every change that would be made, and make none of them.
@@ -73,6 +71,7 @@ if (-not $ProjectPath) {
     } else { Join-Path $scriptRoot '..\helper\ComputerCustom.Helper' }
 }
 $scriptPath = Join-Path $scriptRoot 'install-elevated-helper.ps1'
+. (Join-Path $scriptRoot 'activate-helper-install.ps1')
 
 function Assert-ChildPath([string] $Target, [string] $Parent) {
     $resolvedTarget = [IO.Path]::GetFullPath($Target).TrimEnd('\')
@@ -107,7 +106,7 @@ if (-not $DryRun -and -not (Test-Admin)) {
 This needs administrator rights.
 
 It installs into Program Files, adds a certificate to the machine's trusted
-store, and registers a scheduled task. Re-run it from an elevated PowerShell:
+store. Re-run it from an elevated PowerShell:
 
   Start-Process powershell -Verb RunAs -ArgumentList '-NoProfile','-File','$scriptPath'
 "@
@@ -246,15 +245,21 @@ if (-not $DryRun) {
     if ($LASTEXITCODE -ne 0) { throw 'Could not record helper provenance' }
     Write-Step "Build id $buildId"
 
-    Copy-Item -Path (Join-Path $staging '*') -Destination $InstallDir -Recurse -Force
+    $checker = Join-Path $scriptRoot '..\server\helper-check.mjs'
+    if (-not (Test-Path -LiteralPath $checker)) { $checker = Join-Path $scriptRoot '..\build\server\helper-check.mjs' }
+    if (-not (Test-Path -LiteralPath $checker)) { throw 'Missing helper startup checker; build/package the server first.' }
+    $installedExe = Install-HelperVersion -Staging $staging -InstallDir $InstallDir -Verify {
+        param($Directory)
+        $candidate = Join-Path $Directory $exeName
+        if ((Get-AuthenticodeSignature -FilePath $candidate).Status -ne 'Valid') { throw 'Installed signature validation failed' }
+        & node $checker $candidate | Out-Host
+        if ($LASTEXITCODE -ne 0) { throw 'Protected helper startup/UIAccess verification failed' }
+    }
     Remove-Item -LiteralPath $staging -Recurse -Force
 }
 
-$installedExe = Join-Path $InstallDir $exeName
-
 # 5. Verify the installed copy really will be granted UIAccess.
 Write-Head 'Step 5 of 5: verify'
-$installedExe = Join-Path $InstallDir $exeName
 
 if (-not $DryRun) {
     $check = Get-AuthenticodeSignature -FilePath $installedExe

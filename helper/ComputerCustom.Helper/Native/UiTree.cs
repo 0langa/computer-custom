@@ -119,10 +119,12 @@ internal static class UiTree
             Cache.Remove(key);
     }
 
-    private static CachedElement ResolveElement(string elementId)
+    private static CachedElement ResolveElement(string elementId, InputTarget? expected = null)
     {
         if (!Cache.TryGetValue(elementId, out var cached))
             throw new HelperOperationException(ErrorCodes.StaleHandle, "That element's observation has expired. Observe its window again.");
+        if (expected is not null && expected != cached.Target)
+            throw new HelperOperationException(ErrorCodes.StaleHandle, "Element does not belong to the prepared window/process.");
         TargetResolver.Resolve(JsonSerializer.SerializeToElement(new { target = cached.Target }, Protocol.Json));
         return cached;
     }
@@ -135,7 +137,8 @@ internal static class UiTree
         var rect = info.BoundingRectangle;
         return new { elementId, target = cached.Target, name = info.Name, role = ShortRole(info.ControlType),
             x = (int)rect.X - bounds.Left, y = (int)rect.Y - bounds.Top,
-            width = (int)rect.Width, height = (int)rect.Height, enabled = info.IsEnabled, offscreen = info.IsOffscreen };
+            width = (int)rect.Width, height = (int)rect.Height, enabled = info.IsEnabled, offscreen = info.IsOffscreen,
+            focused=info.HasKeyboardFocus,value=ReadValue(cached.Element)??"" };
     }
 
     private static int Count(UiNode node) =>
@@ -245,9 +248,10 @@ internal static class UiTree
             || !string.IsNullOrWhiteSpace(node.Name);
     }
 
-    public static void Invoke(string elementId)
+    public static void Invoke(string elementId, InputTarget? expected = null)
     {
-        var element = ResolveElement(elementId).Element;
+        var element = ResolveElement(elementId, expected).Element;
+        if (!element.Current.IsEnabled) throw new HelperOperationException(ErrorCodes.NoTarget, "The intended control is disabled.");
 
         try
         {
@@ -300,9 +304,10 @@ internal static class UiTree
             "That element cannot be invoked directly. Click its coordinates instead.");
     }
 
-    public static void SetValue(string elementId, string value)
+    public static void SetValue(string elementId, string value, InputTarget? expected = null)
     {
-        var element = ResolveElement(elementId).Element;
+        var element = ResolveElement(elementId, expected).Element;
+        if (!element.Current.IsEnabled) throw new HelperOperationException(ErrorCodes.NoTarget, "The intended control is disabled.");
 
         try
         {

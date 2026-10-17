@@ -3,7 +3,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, it } from "node:test";
-import { HelperProcess, resolveHelperPath } from "../build/server/helper-process.mjs";
+import { HelperProcess, resolveHelperPath,installedHelperPath } from "../build/server/helper-process.mjs";
 
 const HELPER = path.resolve(
   "helper/ComputerCustom.Helper/bin/Debug/net10.0-windows10.0.19041.0/computer-custom-helper.exe",
@@ -72,6 +72,27 @@ describe("helper start mode", { skip: !fs.existsSync(HELPER) && "helper not buil
     try {
       assert.ok(!resolveHelperPath().startsWith(directory), "normal mode must use the bundled/development helper");
     } finally { fs.rmSync(directory, { recursive: true, force: true }); }
+  });
+
+  it('selects a complete immutable version and rejects an escaping activation pointer',()=>{
+    const directory=fakeInstall('legacy');
+    try{
+      const root=path.join(directory,'Computer Custom'),relative='versions/1234567890abcdef-12345678';
+      fs.mkdirSync(path.join(root,relative),{recursive:true});fs.writeFileSync(path.join(root,relative,'computer-custom-helper.exe'),'version');
+      fs.writeFileSync(path.join(root,'active.json'),JSON.stringify({schema:1,directory:relative}));
+      assert.equal(installedHelperPath(),path.join(root,relative,'computer-custom-helper.exe'));
+      fs.writeFileSync(path.join(root,'active.json'),JSON.stringify({schema:1,directory:'../../outside'}));
+      assert.throws(()=>installedHelperPath(),/Invalid installed/);
+    }finally{fs.rmSync(directory,{recursive:true,force:true});}
+  });
+
+  it("a per-worker normal launch can override the session's elevated default", async () => {
+    const directory=fakeInstall('fixture');
+    const helper=track(new HelperProcess({elevated:false,executablePath:HELPER}));
+    try {
+      await helper.call('ping');
+      assert.equal(helper.startInfo.actual,'normal');
+    } finally {discard(helper,directory);}
   });
 
   it("never claims uiAccess for the unsigned development helper", async () => {

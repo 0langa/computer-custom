@@ -23,6 +23,7 @@ test('packaged provenance identifies the bytes of every shipped native executabl
   assert.ok(fs.existsSync(file), 'native publish must record binary provenance');
   const provenance = JSON.parse(fs.readFileSync(file, 'utf8'));
   assert.equal(provenance.sourceId, helperBuildId());
+  assert.equal(provenance.overlaySourceId,helperBuildId(path.resolve('helper/ComputerCustom.Overlay')));
   assert.equal(fs.readFileSync(path.join(root, 'helper/build-id.txt'), 'utf8').trim(), provenance.sourceId);
   for (const name of fs.readdirSync(path.join(root, 'helper')).filter(n => /\.(exe|dll)$/.test(n))) {
     const bytes = fs.readFileSync(path.join(root, 'helper', name));

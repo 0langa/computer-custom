@@ -1,7 +1,7 @@
 {
   "name": "computer-custom",
-  "version": "0.2.3",
-  "description": "Self-contained Windows computer control with policy gates. No other runtime required.",
+  "version": "0.3.0",
+  "description": "Explicit Windows automation with prepared batches, shared Snooze and a signed UIAccess helper.",
   "author": {
     "name": "0langa",
     "email": "plugins@0langa.dev",
@@ -14,15 +14,15 @@
     "computer-use",
     "windows",
     "automation",
-    "policy",
+    "batches",
     "codex"
   ],
   "skills": "./skills/",
   "mcpServers": "./.codex-mcp.json",
   "interface": {
     "displayName": "Computer Custom",
-    "shortDescription": "Policy-controlled Windows app automation.",
-    "longDescription": "Computer Custom drives Windows directly through its own MCP server and native helper: screen, mouse, keyboard, windows and the accessibility tree, behind configurable policy gates, confirmations and a redacted audit trail. It does not require any provider's bundled computer-use runtime.",
+    "shortDescription": "Prepared Windows batches with countdown and Snooze.",
+    "longDescription": "Select Computer Custom for prepared desktop batches, shared countdown/Snooze, UIAccess or saved local flows. Prefer bundled Computer for ordinary desktop work. Custom runs its own MCP server and native Windows helper; host authorization stays authoritative.",
     "developerName": "0langa",
     "category": "Developer Tools",
     "capabilities": [
@@ -34,9 +34,9 @@
     "privacyPolicyURL": "https://github.com/0langa/computer-custom#privacy",
     "termsOfServiceURL": "https://github.com/0langa/computer-custom#terms",
     "defaultPrompt": [
-      "Inspect an app window safely",
-      "Automate a Windows workflow with policy gates",
-      "List targetable Windows apps"
+      "Use Computer Custom to prepare a desktop batch",
+      "Run my saved Computer Custom flow",
+      "Check Computer Custom UIAccess status"
     ],
     "brandColor": "#0F766E",
     "composerIcon": "./assets/icon.png",
