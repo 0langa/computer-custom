@@ -75,10 +75,10 @@ export async function runPreparedBatch(workers:DesktopWorkers,batch:Batch,signal
     cancelled();
   }finally{
     signal.removeEventListener("abort",abort);
-    if(signal.aborted)abort();
+    if(signal.aborted){abort();await workers.control.waitForStop?.();}
     else if(leaseId){
       try{await workers.call("end_control",{leaseId},{timeoutMs:500});}
-      catch{workers.control.stop();}
+      catch{workers.control.stop();await workers.control.waitForStop?.();}
     }
   }
 }

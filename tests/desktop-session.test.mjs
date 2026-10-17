@@ -23,6 +23,7 @@ function fake(){
 }
 test('legacy actions batch in order and observation flushes a partial batch before reading',async()=>{
   const {session,calls,actions}=fake();
+  await session.withPreparedFlow(async()=>{
   await session.call('focus_window',{handle:11});
   await session.call('click',{x:130,y:250});
   await session.call('type_text',{text:'hello'});
@@ -32,10 +33,11 @@ test('legacy actions batch in order and observation flushes a partial batch befo
   assert.deepEqual(actions[1],{op:'click',target,args:{x:30,y:50}});
   const read=calls.findIndex(c=>c[0]==='native'&&c[1].op==='ui_tree');
   const wait=calls.findIndex(c=>c[0]==='wait_batch');assert.ok(read>wait);
+  });
 });
 test('concurrent legacy calls append to one prepared batch and never send raw input',async()=>{
   const {session,calls,actions}=fake();
-  await Promise.all([session.call('click',{x:130,y:250}),session.call('key',{keys:['enter']})]);
+  await session.withPreparedFlow(()=>Promise.all([session.call('click',{x:130,y:250}),session.call('key',{keys:['enter']})]));
   assert.equal(actions.length,2);assert.equal(calls.filter(c=>c[0]==='prepare')[1][1].id,'batch');
   assert.ok(calls.every(c=>c[0]!=='native'||!['click','key'].includes(c[1].op)));
 });
@@ -66,4 +68,23 @@ test('a saved flow collects known steps beyond the threshold until an observatio
     await session.call('ui_tree',{handle:11});
   });
   assert.equal(actions.length,12);assert.equal(calls.filter(c=>c[0]==='wait_batch').length,1);
+});
+test('lost coordinator history is reported once and does not prevent a fresh observation',async()=>{
+  const client={stop(){},request:async(method,args)=>{
+    if(method==='prepare')return {result:{id:'old-batch',state:'prepared'}};
+    if(method==='batch_status')throw Object.assign(new Error('not found for owner'),{code:'NO_BATCH'});
+    if(method==='observe')return {result:{target:args.target}};
+    assert.fail(method);
+  }};
+  const session=new DesktopSession(client);
+  await session.request('prepare',{actions:[{op:'click',target,args:{x:1,y:1}}]});
+  await assert.rejects(session.request('observe',{target}),e=>e.code==='BATCH_STATE_LOST');
+  assert.deepEqual((await session.request('observe',{target})).result.target,target);
+});
+test('a direct legacy action completes before returning without requiring a later observation',async()=>{
+  const {session,calls}=fake();
+  const answer=await session.call('click',{x:130,y:250});
+  assert.equal(answer.result.state,'succeeded');
+  assert.equal(calls.find(c=>c[0]==='prepare')[1].flush,true);
+  assert.equal(calls.filter(c=>c[0]==='wait_batch').length,1);
 });

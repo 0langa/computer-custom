@@ -78,6 +78,7 @@ export type HelperErrorCode =
   | "CONTROL_BUSY"
   | "INPUT_SUPPRESSION_UNAVAILABLE"
   | "TARGET_OCCLUDED"
+  | "TARGET_DISABLED"
   | "FOCUS_FAILED"
   /** Target window runs at a higher power level than the helper. */
   | "UIPI_BLOCKED"

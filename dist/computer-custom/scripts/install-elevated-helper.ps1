@@ -124,6 +124,8 @@ if ($DryRun) {
 
 if ($Uninstall) {
     Write-Head 'Removing the elevated helper'
+    Assert-ChildPath $InstallDir $env:ProgramFiles
+    if (-not $DryRun) { Assert-HelperInstallUnused -InstallDir $InstallDir }
 
     # Current installs register no task; this clears one left by an earlier
     # version of the script.
@@ -302,8 +304,9 @@ which is the only way Windows will grant UIAccess - CreateProcess refuses a
 uiAccess binary outright. No UAC prompt appears, because granting UIAccess to a
 signed binary in a protected folder is precisely what the mechanism is for.
 
-Still out of reach, by Windows design and not by policy:
-  the UAC consent prompt. Nothing can automate it. You answer it yourself.
+This helper cannot answer consent on the secure desktop. On that desktop,
+answer the prompt yourself. Ordinary-desktop consent depends on actual
+Windows configuration and observed capability; UAC settings are unchanged.
 
 To undo everything:
   $scriptPath -Uninstall

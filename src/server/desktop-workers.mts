@@ -5,6 +5,7 @@ import type { HelperOp } from "../protocol/types.mjs";
 export interface NativeWorker {
   call(op: HelperOp, args?: Record<string, unknown>, options?: HelperCallOptions): Promise<HelperCallResult>;
   stop(): void;
+  waitForStop?():Promise<void>;
   readonly startInfo?: HelperStartInfo;
 }
 

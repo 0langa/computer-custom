@@ -44,6 +44,14 @@ internal static class Program
                 {
                     if (command == "quit") { Application.Exit(); return; }
                     if (command == "reset") foreach (var w in Windows) w.Reset();
+                    if (command.StartsWith("bounds:")) {
+                        var b=command[7..].Split(',').Select(int.Parse).ToArray();Windows[0].Bounds=new Rectangle(b[0],b[1],b[2],b[3]);
+                    }
+                    if(command=="modal") {
+                        using var dialog=new Form {Text="Computer Custom modal fixture",StartPosition=FormStartPosition.Manual,
+                            Bounds=new Rectangle(Windows[0].Left+30,Windows[0].Top+30,300,160)};
+                        dialog.Shown+=(_,_)=>Emit("modal");dialog.ShowDialog(Windows[0]);return;
+                    }
                     if (command.StartsWith("title:")) foreach (var w in Windows) w.Text = command[6..];
                     if (command.StartsWith("phase:")) foreach (var w in Windows) w.Phase(command[6..]);
                     Emit("state");

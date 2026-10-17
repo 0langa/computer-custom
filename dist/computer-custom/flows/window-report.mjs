@@ -20,8 +20,11 @@ export default async function windowReport(cc) {
   }
 
   const windows = await cc.list_windows();
-  const drivable = windows.filter((w) => w.integrity !== "high" && w.integrity !== "system");
-  const blocked = windows.filter((w) => w.integrity === "high" || w.integrity === "system");
+  const ranks={low:0,medium:1,high:2,system:3};
+  const own=ranks[status.integrity??status.power]??1;
+  const unavailable=w=>!status.uiAccess&&(ranks[w.integrity]??own)>own;
+  const drivable = windows.filter(w=>!unavailable(w));
+  const blocked = windows.filter(unavailable);
 
   for (const window of blocked) {
     cc.log(`out of reach (${window.integrity}): ${window.process} — ${window.title}`);
@@ -37,6 +40,6 @@ export default async function windowReport(cc) {
       foreground: w.foreground,
     }));
 
-  cc.log(`${report.length} drivable windows, ${blocked.length} out of reach`);
+  cc.log(`${report.length} input candidates, ${blocked.length} above this helper's reach; actual target behavior still requires observation`);
   return { drivable: report, outOfReach: blocked.length };
 }

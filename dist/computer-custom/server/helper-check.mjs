@@ -1,6 +1,7 @@
 // build/server/helper-process.mjs
 import { execFile, spawn } from "node:child_process";
 import { promisify } from "node:util";
+import { setTimeout as delay } from "node:timers/promises";
 import crypto2 from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
@@ -384,6 +385,7 @@ function sessionFilePath() {
   return path.join(base, "computer-custom", `session-${crypto2.randomUUID()}.json`);
 }
 var HelperProcess = class {
+  #stoppedPids = /* @__PURE__ */ new Set();
   #options;
   #child;
   #client;
@@ -435,6 +437,9 @@ var HelperProcess = class {
     }
   }
   stop() {
+    const stoppedPid = this.#child?.pid ?? this.#elevatedPid;
+    if (stoppedPid)
+      this.#stoppedPids.add(stoppedPid);
     this.#generation++;
     this.#startInfo = void 0;
     this.#client?.close();
@@ -450,6 +455,27 @@ var HelperProcess = class {
       } catch {
       }
       this.#elevatedPid = void 0;
+    }
+  }
+  /** Pipe closure initiates release; do not hand ownership on before native exit. */
+  async waitForStop(timeoutMs = 1e3) {
+    const until = performance.now() + timeoutMs;
+    while (this.#stoppedPids.size) {
+      for (const pid of this.#stoppedPids) {
+        try {
+          process.kill(pid, 0);
+        } catch (error) {
+          if (error.code === "ESRCH")
+            this.#stoppedPids.delete(pid);
+          else if (error.code !== "EPERM")
+            throw error;
+        }
+      }
+      if (!this.#stoppedPids.size)
+        return;
+      if (performance.now() >= until)
+        throw new HelperClientError("HELPER_UNAVAILABLE", "Previous input worker has not exited; input ownership is not yet released.");
+      await delay(5);
     }
   }
   #ensureStarted() {

@@ -29,3 +29,10 @@ test('an upgrade activates a complete immutable version and leaves the previous 
     assert.equal(fs.readFileSync(path.join(install,active.directory,'computer-custom-helper.dll'),'utf8'),'new computer-custom-helper.dll');
   }finally{fs.rmSync(root,{recursive:true,force:true});}
 });
+test('uninstall checks active installed processes before deleting any version',()=>{
+  const library=path.resolve('scripts/activate-helper-install.ps1').replaceAll("'","''");
+  const run=script=>execFileSync('powershell.exe',['-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-Command',`. '${library}'; ${script}`],
+    {windowsHide:true,encoding:'utf8',env:windowsPowerShellEnvironment(),stdio:'pipe'});
+  assert.throws(()=>run("Assert-HelperInstallUnused -InstallDir 'C:\\Program Files\\Computer Custom' -ExecutablePaths @('C:\\Program Files\\Computer Custom\\versions\\v1\\computer-custom-helper.exe')"),/close|running/i);
+  assert.doesNotThrow(()=>run("Assert-HelperInstallUnused -InstallDir 'C:\\Program Files\\Computer Custom' -ExecutablePaths @('C:\\Program Files\\Computer Custom Other\\helper.exe')"));
+});

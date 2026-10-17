@@ -42,7 +42,8 @@ within the shared lease; each underlying UIA call remains bounded to two seconds
 UIA providers can acknowledge an action before its visible effect. Use readiness
 conditions for dependencies and re-observe after a failed or ambiguous result.
 
-Legacy MCP input tools bind targets and join this queue. Observations, explicit
+Direct legacy MCP input tools finish a single bound action through this queue.
+Observations, explicit
 flush, flow sleeps and successful flow completion flush pending work. Known flow
 steps are collected beyond the threshold until such a dependency. Flows are
 trusted local JavaScript, with the same per-tool authorization and audit path.

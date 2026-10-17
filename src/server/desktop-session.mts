@@ -37,11 +37,17 @@ export class DesktopSession {
         return answer;
       }
       if(!PREPARED_OPS.has(op))throw new BatchError("BAD_ARGS",`Unsupported prepared operation '${op}'.`);
+      const deferred=!!this.#flowScope.getStore();
+      if(!deferred)await this.#flush(options);
       const action=await this.#bind(op,args,options);
-      const answer=await this.#client.request("prepare",{id:this.#pending,actions:[action],...(this.#flowScope.getStore()?{flush:false}:{})},options);
+      const answer=await this.#client.request("prepare",{id:this.#pending,actions:[action],flush:!deferred},options);
       const batch=answer.result as BatchStatus;
       this.#pending=batch.state==="prepared"?batch.id:undefined;this.#batches.add(batch.id);this.#target=action.target;
       this.#track(batch);
+      if(!deferred){
+        const completed=(await this.#flush(options)).result as {batches:BatchStatus[]};
+        return {result:completed.batches.at(-1)??batch};
+      }
       return answer;
     });
   }
@@ -66,6 +72,7 @@ export class DesktopSession {
     if(batch.state==="prepared")this.#prepared.add(batch.id);else this.#prepared.delete(batch.id);
   }
   async #flush(options:HelperCallOptions):Promise<HelperCallResult>{
+    try{
     for(const id of this.#prepared){
       const status=(await this.#client.request("batch_status",{id},options)).result as BatchStatus;
       if(status.state==="prepared")await this.#client.request("prepare",{id,actions:[],flush:true},options);
@@ -82,6 +89,13 @@ export class DesktopSession {
       if(batch.state!=="succeeded")throw new BatchError(batch.error?.code??"EXECUTION_FAILED",JSON.stringify(batch));
     }
     return {result:{state:"succeeded",batches}};
+    }catch(error){
+      if((error as {code?:string}).code==="NO_BATCH"){
+        this.#pending=undefined;this.#batches.clear();this.#prepared.clear();this.#target=undefined;this.#startInfo=undefined;
+        throw new BatchError("BATCH_STATE_LOST","Coordinator history is unavailable. Previous progress is unknown; observe again before preparing remaining actions. Do not replay the old batch.");
+      }
+      throw error;
+    }
   }
   #native(op:HelperOp,args:Record<string,unknown>,options:HelperCallOptions):Promise<HelperCallResult>{
     return this.#client.request("native",{op,args},options);

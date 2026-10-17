@@ -25,7 +25,8 @@ role or automationId. `wait_for` waits for a visible control after a page change
 Both run locally; they do not replay input. Selectors that match multiple controls
 are rejected before invocation. Individual UIA requests retain a two-second cap.
 
-Legacy click/key/type/focus tools join the same queue. Observations and
+Direct click/key/type/focus tools finish their single action through the same
+queue. Observations and
 `flush_batch` flush pending work. Saved flows also flush before sleeps and
 successful completion. Known flow steps stay together beyond the threshold until
 a dependency flush. Commands/files use direct tools; local JavaScript flows

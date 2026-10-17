@@ -20246,6 +20246,7 @@ async function listenCoordinator(options) {
 // build/server/helper-process.mjs
 import { execFile, spawn } from "node:child_process";
 import { promisify } from "node:util";
+import { setTimeout as delay } from "node:timers/promises";
 import crypto2 from "node:crypto";
 import fs3 from "node:fs";
 import os2 from "node:os";
@@ -20569,6 +20570,7 @@ function sessionFilePath() {
   return path3.join(base, "computer-custom", `session-${crypto2.randomUUID()}.json`);
 }
 var HelperProcess = class {
+  #stoppedPids = /* @__PURE__ */ new Set();
   #options;
   #child;
   #client;
@@ -20620,6 +20622,9 @@ var HelperProcess = class {
     }
   }
   stop() {
+    const stoppedPid = this.#child?.pid ?? this.#elevatedPid;
+    if (stoppedPid)
+      this.#stoppedPids.add(stoppedPid);
     this.#generation++;
     this.#startInfo = void 0;
     this.#client?.close();
@@ -20635,6 +20640,27 @@ var HelperProcess = class {
       } catch {
       }
       this.#elevatedPid = void 0;
+    }
+  }
+  /** Pipe closure initiates release; do not hand ownership on before native exit. */
+  async waitForStop(timeoutMs = 1e3) {
+    const until = performance.now() + timeoutMs;
+    while (this.#stoppedPids.size) {
+      for (const pid of this.#stoppedPids) {
+        try {
+          process.kill(pid, 0);
+        } catch (error62) {
+          if (error62.code === "ESRCH")
+            this.#stoppedPids.delete(pid);
+          else if (error62.code !== "EPERM")
+            throw error62;
+        }
+      }
+      if (!this.#stoppedPids.size)
+        return;
+      if (performance.now() >= until)
+        throw new HelperClientError("HELPER_UNAVAILABLE", "Previous input worker has not exited; input ownership is not yet released.");
+      await delay(5);
     }
   }
   #ensureStarted() {
@@ -20872,7 +20898,7 @@ var DesktopWorkers = class {
 };
 
 // build/server/batch-runner.mjs
-import { setTimeout as delay } from "node:timers/promises";
+import { setTimeout as delay2 } from "node:timers/promises";
 var PREPARED_OPS = /* @__PURE__ */ new Set(["focus_window", "wait_for", "move", "click", "drag", "scroll", "type_text", "key", "invoke_element", "set_element_value", "clipboard_set"]);
 async function liveControl(workers, target, selector, signal, until, unique) {
   while (true) {
@@ -20901,7 +20927,7 @@ async function liveControl(workers, target, selector, signal, until, unique) {
       throw new BatchError("AMBIGUOUS_TARGET", "More than one control matches. Observe and use a more specific selector.");
     if (found.length)
       return found[0];
-    await delay(25, void 0, { signal });
+    await delay2(25, void 0, { signal });
   }
 }
 async function runPreparedBatch(workers, batch, signal, progress) {
@@ -20948,7 +20974,7 @@ async function runPreparedBatch(workers, batch, signal, progress) {
           const observed = (await workers.call("resolve_element", { elementId: expectation.elementId }, { signal, timeoutMs: Math.max(1, Math.ceil(until - performance.now())) })).result;
           if (observed[expectation.property] === expectation.equals)
             break;
-          await delay(10, void 0, { signal });
+          await delay2(10, void 0, { signal });
         }
       }
       progress(index + 1);
@@ -20956,13 +20982,15 @@ async function runPreparedBatch(workers, batch, signal, progress) {
     cancelled();
   } finally {
     signal.removeEventListener("abort", abort);
-    if (signal.aborted)
+    if (signal.aborted) {
       abort();
-    else if (leaseId) {
+      await workers.control.waitForStop?.();
+    } else if (leaseId) {
       try {
         await workers.call("end_control", { leaseId }, { timeoutMs: 500 });
       } catch {
         workers.control.stop();
+        await workers.control.waitForStop?.();
       }
     }
   }

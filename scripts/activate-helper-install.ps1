@@ -1,4 +1,19 @@
 # Copy a complete immutable version, validate it, then atomically activate it.
+
+function Assert-HelperInstallUnused {
+    param([string] $InstallDir, [string[]] $ExecutablePaths)
+    $root = [IO.Path]::GetFullPath($InstallDir).TrimEnd('\') + '\'
+    if (-not $PSBoundParameters.ContainsKey('ExecutablePaths')) {
+        $ExecutablePaths = @(Get-Process -Name 'computer-custom-helper','computer-custom-overlay' -ErrorAction SilentlyContinue |
+            ForEach-Object { $_.Path })
+    }
+    foreach ($executable in $ExecutablePaths) {
+        if ($executable -and [IO.Path]::GetFullPath($executable).StartsWith($root,[StringComparison]::OrdinalIgnoreCase)) {
+            throw 'Computer Custom is still running from this installation. Close its sessions before uninstalling; no files have been removed.'
+        }
+    }
+}
+
 function Install-HelperVersion {
     param([string] $Staging, [string] $InstallDir, [scriptblock] $Verify = {
         param($Directory)

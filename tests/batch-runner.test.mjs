@@ -74,3 +74,11 @@ test('a navigation invocation resolves its control from the live page rather tha
   await runPreparedBatch(worker,{...batch,actions:[{op:'invoke_element',target,args:{selector:{name:'Notifications',role:'button'}}}]},new AbortController().signal,()=>{});
   assert.deepEqual(calls.find(c=>c.op==='invoke_element').args,{elementId:'live-button',target,prepared:true});
 });
+test('cancellation cleanup waits for the input worker to exit before returning ownership',async()=>{
+  const {worker}=fake(),controller=new AbortController();let release,waiting=false,finished=false;
+  worker.control.waitForStop=()=>{waiting=true;return new Promise(resolve=>release=resolve);};
+  const result=runPreparedBatch(worker,batch,controller.signal,()=>controller.abort()).catch(error=>{finished=true;return error;});
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(waiting,true);assert.equal(finished,false);
+  release();assert.equal((await result).code,'CANCELLED');
+});

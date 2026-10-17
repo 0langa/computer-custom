@@ -43,8 +43,9 @@ Example arguments after observing a target and button:
 {"actions":[{"op":"invoke_element","target":{"handle":123,"pid":456,"processStartTime":"observed value"},"args":{"elementId":"observed button ID"}}],"flush":true,"title":"Open app settings"}
 ```
 
-Legacy `focus_window`, `click`, `key`, typing and UIA tools append to the same
-queue. They return pending progress. Observations flush pending actions; call
+Direct `focus_window`, `click`, `key`, typing and UIA tools use the same queue
+and complete their single action immediately. Saved flows collect known actions
+until a dependency. Observations flush pending explicit batches; call
 `flush_batch` before reporting completion. Saved flows also flush before sleeps
 and on successful completion. Use `run_shell` and file tools for commands/files.
 

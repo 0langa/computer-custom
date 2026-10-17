@@ -7,8 +7,8 @@
  * working directory set to C:\ so nothing can be resolved out of the repo's
  * node_modules by accident. What passes here is what the user actually gets.
  *
- * It also exercises the three confirmation routes, because a gate that is only
- * unit tested is a gate nobody has watched refuse anything:
+ * It checks host-owned default authorization, then exercises the optional
+ * explicitly restricted policy's confirmation routes:
  *   - the user declines            -> the file must still be there
  *   - the phrase is wrong          -> the file must still be there
  *   - the phrase is exact          -> it acts, and the audit records it
@@ -59,7 +59,7 @@ const transport = new StdioClientTransport({
   cwd: "C:\\",
   env: {
     ...process.env,
-    COMPUTER_CUSTOM_POLICY: path.join(ROOT, "config", "default-policy.json"),
+    COMPUTER_CUSTOM_POLICY: path.join(ROOT, "config", "example-restricted-policy.json"),
     COMPUTER_CUSTOM_HELPER: path.join(ROOT, "helper", "computer-custom-helper.exe"),
     COMPUTER_CUSTOM_FLOWS: path.join(ROOT, "flows"),
     COMPUTER_CUSTOM_ELEVATED: "0", // non-elevated: no UAC noise during the test
@@ -73,7 +73,8 @@ try {
   console.log("\nPackaged server, driven from C:\\ as a real MCP client");
 
   const { tools } = await client.listTools();
-  check("tools advertised", tools.length === 24, `${tools.length} tools`);
+  const required=['status','observe','prepare_batch','batch_status','wait_batch','cancel_batch','flush_batch','desktop_settings','run_shell','run_flow','fs_delete','audit'];
+  check("tools advertised", required.every(name=>tools.some(tool=>tool.name===name)), `${tools.length} tools`);
 
   const status = JSON.parse((await client.callTool({ name: "status", arguments: {} })).content[0].text);
   check("status answers over the protocol", status.protocol === 1, `power=${status.power} uiAccess=${status.uiAccess}`);
@@ -91,7 +92,7 @@ try {
 
   // --- a hard block must never even ask ------------------------------------
   elicitations.length = 0;
-  const blocked = await client.callTool({ name: "run_shell", arguments: { command: "format the drive D:" } });
+  const blocked = await client.callTool({ name: "run_shell", arguments: { command: "Write-Output 'format the drive D:'" } });
   check("hard block refuses", blocked.isError === true, blocked.content[0].text.slice(0, 60));
   check("hard block never asks", elicitations.length === 0, `${elicitations.length} elicitations`);
 
@@ -121,6 +122,17 @@ try {
   await client.close();
   if (fs.existsSync(marker)) fs.rmSync(marker);
 }
+
+const defaultClient=new Client({name:'default-authorization-check',version:'1'},{capabilities:{elicitation:{}}});
+let defaultPrompts=0;
+defaultClient.setRequestHandler(ElicitRequestSchema,async()=>{defaultPrompts++;return {action:'decline'};});
+const defaultMarker=path.join(os.tmpdir(),`cc-default-e2e-${Date.now()}.txt`);fs.writeFileSync(defaultMarker,'owned verification marker');
+try{
+  await defaultClient.connect(new StdioClientTransport({command:process.execPath,args:[path.join(ROOT,'server/index.mjs')],cwd:'C:\\',
+    env:{...process.env,COMPUTER_CUSTOM_POLICY:path.join(ROOT,'config/default-policy.json'),COMPUTER_CUSTOM_OVERLAY:'0'}}));
+  const deleted=await defaultClient.callTool({name:'fs_delete',arguments:{path:defaultMarker}});
+  check('default uses host authorization',!deleted.isError&&defaultPrompts===0&&!fs.existsSync(defaultMarker),'owned marker deleted with no extra elicitation');
+}finally{await defaultClient.close();if(fs.existsSync(defaultMarker))fs.rmSync(defaultMarker);}
 
 const failed = results.filter((r) => !r.ok);
 console.log(failed.length ? `\n${failed.length} FAILED: ${failed.map((r) => r.name).join(", ")}` : "\nAll packaged-plugin checks passed.");

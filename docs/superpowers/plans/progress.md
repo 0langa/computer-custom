@@ -225,3 +225,37 @@ event-code RED→GREEN. No further bundled comparison is required (human reitera
 This is a tested implementation checkpoint, not goal completion. Remaining:
 recovery/failure and geometry acceptance, install/uninstall lifecycle, supported
 host reload of guidance, final independent whole-branch review and completion audit.
+
+Recovery/target acceptance after455c9ce:
+- Actual cancellation initially advanced the queue before native worker exit,
+  producing CONTROL_BUSY in the following owner. Added condition-based native
+  process exit waiting during cleanup; unit regression RED→GREEN. Real MCP
+  cancel/disconnect/crash/timeout cases then all reacquired block mode with exact
+  fixture counts:47ms/140ms/1394ms/1522ms recovery. Timeout configured1500ms.
+- Restarted coordinator history previously trapped observations in NO_BATCH.
+  Regression RED→GREEN: report BATCH_STATE_LOST once, discard stale tracking,
+  permit a fresh observation without replay.
+- Move-after-prepare and shrink-after-prepare passed with the installed helper.
+  Modal-parent key input incorrectly succeeded (RED): disabled parent could
+  redirect the key. Native IsWindowEnabled checks added before/after focus;
+  actual modal-only run on the updated normal helper returns TARGET_DISABLED.
+  Full signed/occlusion run awaits final helper installation. Both real display
+  scales are1.0; mixed-DPI execution remains unmeasured (no display settings changed).
+- Direct legacy actions now complete before returning, without a later flush;
+  flow-scoped actions still batch until dependencies. Regression RED→GREEN.
+- Uninstall checks active installed executables before deleting versions;
+  path-boundary tests cover active/sibling paths. Immutable activation/rollback
+  tests continue passing. Full real install/uninstall still requires Windows UAC.
+- Packaged31-tool MCP smoke passes from C:/, including default host authorization
+  and separate explicit restricted-policy behavior. The test's block probe is a
+  harmless Write-Output string. Fixed the example window report's false exclusion
+  of elevated candidates under high/UIAccess; regression RED→GREEN.
+- Full suite187/187 passed (147 core,40 desktop integration), no skips.
+  Current native package source f671efadff490e50. Installer readiness question
+  pending; do not trigger another UAC prompt without the human's readiness reply.
+
+Ruling: begin the required whole-branch source review while human-assisted final
+signed installation is pending — implementation is ready and this review can
+proceed without interrupting the human — cost if wrong: any later acceptance fix
+falls after the pinned review and must receive its own regression verification.
+Goal remains active; no completion claim and no publication/merge authorized.

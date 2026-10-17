@@ -7,6 +7,7 @@
 
 import { type ChildProcess, execFile, spawn } from "node:child_process";
 import { promisify } from "node:util";
+import {setTimeout as delay} from "node:timers/promises";
 import crypto from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
@@ -130,6 +131,7 @@ function sessionFilePath(): string {
 }
 
 export class HelperProcess {
+  readonly #stoppedPids=new Set<number>();
   readonly #options: HelperProcessOptions;
   #child: ChildProcess | undefined;
   #client: HelperClient | undefined;
@@ -187,6 +189,8 @@ export class HelperProcess {
   }
 
   stop(): void {
+    const stoppedPid=this.#child?.pid??this.#elevatedPid;
+    if(stoppedPid)this.#stoppedPids.add(stoppedPid);
     this.#generation++;
     this.#startInfo = undefined;
     this.#client?.close();
@@ -199,6 +203,23 @@ export class HelperProcess {
     if (this.#elevatedPid !== undefined) {
       try { process.kill(this.#elevatedPid); } catch { /* Peer close and native watchdog also end the helper. */ }
       this.#elevatedPid = undefined;
+    }
+  }
+
+  /** Pipe closure initiates release; do not hand ownership on before native exit. */
+  async waitForStop(timeoutMs=1000):Promise<void>{
+    const until=performance.now()+timeoutMs;
+    while(this.#stoppedPids.size){
+      for(const pid of this.#stoppedPids){
+        try{process.kill(pid,0);}
+        catch(error){
+          if((error as NodeJS.ErrnoException).code==="ESRCH")this.#stoppedPids.delete(pid);
+          else if((error as NodeJS.ErrnoException).code!=="EPERM")throw error;
+        }
+      }
+      if(!this.#stoppedPids.size)return;
+      if(performance.now()>=until)throw new HelperClientError("HELPER_UNAVAILABLE","Previous input worker has not exited; input ownership is not yet released.");
+      await delay(5);
     }
   }
 

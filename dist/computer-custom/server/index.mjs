@@ -36783,11 +36783,12 @@ function resolveAuditPath() {
 import fs6 from "node:fs";
 import { spawn as spawn2 } from "node:child_process";
 import { fileURLToPath as fileURLToPath3 } from "node:url";
-import { setTimeout as delay } from "node:timers/promises";
+import { setTimeout as delay2 } from "node:timers/promises";
 
 // build/server/helper-process.mjs
 import { execFile, spawn } from "node:child_process";
 import { promisify } from "node:util";
+import { setTimeout as delay } from "node:timers/promises";
 import crypto2 from "node:crypto";
 import fs4 from "node:fs";
 import os2 from "node:os";
@@ -37183,6 +37184,7 @@ function sessionFilePath() {
   return path4.join(base, "computer-custom", `session-${crypto2.randomUUID()}.json`);
 }
 var HelperProcess = class {
+  #stoppedPids = /* @__PURE__ */ new Set();
   #options;
   #child;
   #client;
@@ -37234,6 +37236,9 @@ var HelperProcess = class {
     }
   }
   stop() {
+    const stoppedPid = this.#child?.pid ?? this.#elevatedPid;
+    if (stoppedPid)
+      this.#stoppedPids.add(stoppedPid);
     this.#generation++;
     this.#startInfo = void 0;
     this.#client?.close();
@@ -37249,6 +37254,27 @@ var HelperProcess = class {
       } catch {
       }
       this.#elevatedPid = void 0;
+    }
+  }
+  /** Pipe closure initiates release; do not hand ownership on before native exit. */
+  async waitForStop(timeoutMs = 1e3) {
+    const until = performance.now() + timeoutMs;
+    while (this.#stoppedPids.size) {
+      for (const pid of this.#stoppedPids) {
+        try {
+          process.kill(pid, 0);
+        } catch (error62) {
+          if (error62.code === "ESRCH")
+            this.#stoppedPids.delete(pid);
+          else if (error62.code !== "EPERM")
+            throw error62;
+        }
+      }
+      if (!this.#stoppedPids.size)
+        return;
+      if (performance.now() >= until)
+        throw new HelperClientError("HELPER_UNAVAILABLE", "Previous input worker has not exited; input ownership is not yet released.");
+      await delay(5);
     }
   }
   #ensureStarted() {
@@ -37793,7 +37819,7 @@ var CoordinatorClient = class {
                 fs6.closeSync(log);
               }
             }
-            await delay(50);
+            await delay2(50);
           }
         }
         throw new BatchError("HELPER_UNAVAILABLE", `The desktop coordinator did not start. See ${files.logFile}.`);
@@ -37863,13 +37889,20 @@ var DesktopSession = class {
       }
       if (!PREPARED_OPS.has(op))
         throw new BatchError("BAD_ARGS", `Unsupported prepared operation '${op}'.`);
+      const deferred = !!this.#flowScope.getStore();
+      if (!deferred)
+        await this.#flush(options);
       const action2 = await this.#bind(op, args, options);
-      const answer = await this.#client.request("prepare", { id: this.#pending, actions: [action2], ...this.#flowScope.getStore() ? { flush: false } : {} }, options);
+      const answer = await this.#client.request("prepare", { id: this.#pending, actions: [action2], flush: !deferred }, options);
       const batch = answer.result;
       this.#pending = batch.state === "prepared" ? batch.id : void 0;
       this.#batches.add(batch.id);
       this.#target = action2.target;
       this.#track(batch);
+      if (!deferred) {
+        const completed = (await this.#flush(options)).result;
+        return { result: completed.batches.at(-1) ?? batch };
+      }
       return answer;
     });
   }
@@ -37911,28 +37944,40 @@ var DesktopSession = class {
       this.#prepared.delete(batch.id);
   }
   async #flush(options) {
-    for (const id of this.#prepared) {
-      const status = (await this.#client.request("batch_status", { id }, options)).result;
-      if (status.state === "prepared")
-        await this.#client.request("prepare", { id, actions: [], flush: true }, options);
-      this.#prepared.delete(id);
-      if (this.#pending === id)
-        this.#pending = void 0;
-    }
-    const batches = [];
-    for (const id of this.#batches) {
-      let batch = (await this.#client.request("batch_status", { id }, options)).result;
-      while (!["succeeded", "failed", "cancelled"].includes(batch.state)) {
-        if (batch.state === "snoozed")
-          throw new BatchError("SNOOZED", JSON.stringify({ id, state: batch.state, resumeAt: batch.resumeAt }));
-        batch = (await this.#client.request("wait_batch", { id, afterRevision: batch.revision, timeoutMs: 3e4 }, { ...options, timeoutMs: options.timeoutMs ?? 35e3 })).result;
+    try {
+      for (const id of this.#prepared) {
+        const status = (await this.#client.request("batch_status", { id }, options)).result;
+        if (status.state === "prepared")
+          await this.#client.request("prepare", { id, actions: [], flush: true }, options);
+        this.#prepared.delete(id);
+        if (this.#pending === id)
+          this.#pending = void 0;
       }
-      this.#batches.delete(id);
-      batches.push(batch);
-      if (batch.state !== "succeeded")
-        throw new BatchError(batch.error?.code ?? "EXECUTION_FAILED", JSON.stringify(batch));
+      const batches = [];
+      for (const id of this.#batches) {
+        let batch = (await this.#client.request("batch_status", { id }, options)).result;
+        while (!["succeeded", "failed", "cancelled"].includes(batch.state)) {
+          if (batch.state === "snoozed")
+            throw new BatchError("SNOOZED", JSON.stringify({ id, state: batch.state, resumeAt: batch.resumeAt }));
+          batch = (await this.#client.request("wait_batch", { id, afterRevision: batch.revision, timeoutMs: 3e4 }, { ...options, timeoutMs: options.timeoutMs ?? 35e3 })).result;
+        }
+        this.#batches.delete(id);
+        batches.push(batch);
+        if (batch.state !== "succeeded")
+          throw new BatchError(batch.error?.code ?? "EXECUTION_FAILED", JSON.stringify(batch));
+      }
+      return { result: { state: "succeeded", batches } };
+    } catch (error62) {
+      if (error62.code === "NO_BATCH") {
+        this.#pending = void 0;
+        this.#batches.clear();
+        this.#prepared.clear();
+        this.#target = void 0;
+        this.#startInfo = void 0;
+        throw new BatchError("BATCH_STATE_LOST", "Coordinator history is unavailable. Previous progress is unknown; observe again before preparing remaining actions. Do not replay the old batch.");
+      }
+      throw error62;
     }
-    return { result: { state: "succeeded", batches } };
   }
   #native(op, args, options) {
     return this.#client.request("native", { op, args }, options);

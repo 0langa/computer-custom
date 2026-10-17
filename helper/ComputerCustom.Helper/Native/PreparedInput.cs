@@ -13,12 +13,16 @@ internal static class PreparedInput
         var op = request.GetProperty("op").GetString();
         var args = request.TryGetProperty("args", out var a) ? a : request;
         var (target, _) = TargetResolver.Resolve(request);
+        void EnabledTarget(){if(!Win32.IsWindowEnabled((nint)target.Handle))
+            throw new HelperOperationException("TARGET_DISABLED","The target window is disabled, usually by a modal dialog. Observe the active dialog before continuing.");}
+        EnabledTarget();
         if (Win32.GetForegroundWindow() != (nint)target.Handle)
             WindowInspector.Focus(target.Handle);
         if (Win32.GetForegroundWindow() != (nint)target.Handle)
             throw new HelperOperationException("FOCUS_FAILED", "The intended window did not acquire focus.");
         // Focusing/restoring can change geometry. Read it again immediately.
         var (_, bounds) = TargetResolver.Resolve(request);
+        EnabledTarget();
         (int X, int Y) Point(string xName = "x", string yName = "y")
         {
             var point = TargetResolver.Point(bounds, args.GetProperty(xName).GetInt32(), args.GetProperty(yName).GetInt32());

@@ -8,12 +8,9 @@
  *   node scripts/verify-elevation.mjs --focus    also front an elevated window
  *   node scripts/verify-elevation.mjs --prove    also type into one
  *
- * Only --prove demonstrates UIPI. Focusing a window and reading its
- * accessibility tree are NOT restricted by UIPI — both were measured succeeding
- * from an unsigned medium-integrity helper — so neither can show anything.
- * UIPI restricts synthetic input, so typing into a higher-integrity window is
- * the only honest probe, and it needs an app that genuinely requires elevation
- * to be open.
+ * Focus/tree access does not prove synthetic input delivery. The legacy --prove
+ * option reports visual change only; owned fixture value/event readback is the
+ * conclusive acceptance test. Input uses the prepared desktop queue.
  */
 
 import crypto from "node:crypto";
@@ -21,15 +18,12 @@ import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { HelperProcess } from "../build/server/helper-process.mjs";
+import { HelperProcess,installedHelperPath } from "../build/server/helper-process.mjs";
 import { windowsPowerShellEnvironment } from "./windows-powershell.mjs";
+import {DesktopSession} from '../build/server/desktop-session.mjs';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const installedExe = path.join(
-  process.env.ProgramFiles ?? "C:\\Program Files",
-  "Computer Custom",
-  "computer-custom-helper.exe",
-);
+const installedExe = installedHelperPath();
 
 const wantFocus = process.argv.includes("--focus");
 const wantProof = process.argv.includes("--prove");
@@ -59,7 +53,7 @@ function powershell(script) {
  *
  * Harmless: types a bare marker, never presses Enter, then clears the line.
  */
-async function inputLands(helper, target) {
+async function inputLands(helper, target, input) {
   const region = {
     x: target.x,
     y: target.y,
@@ -69,7 +63,7 @@ async function inputLands(helper, target) {
   const digest = (buffer) => crypto.createHash("sha256").update(buffer).digest("hex");
   const pause = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-  await helper.call("focus_window", { handle: target.handle });
+  await input.call("focus_window", { handle: target.handle });
   await pause(800);
 
   // The capture is of screen coordinates, so anything covering the window would
@@ -83,7 +77,7 @@ async function inputLands(helper, target) {
   const before = digest((await helper.call("screenshot", region)).binary);
 
   try {
-    await helper.call("type_text", { text: `cc-probe-${Date.now()}` });
+    await input.call("type_text", { target, text: `cc-probe-${Date.now()}` });
   } catch {
     return false;
   }
@@ -92,7 +86,7 @@ async function inputLands(helper, target) {
   const after = digest((await helper.call("screenshot", region)).binary);
 
   try {
-    await helper.call("key", { keys: ["escape"] });
+    await input.call("key", { target, keys: ["escape"] });
   } catch {
     /* nothing was typed, so nothing to clear */
   }
@@ -156,6 +150,7 @@ Not installed yet. From an ELEVATED PowerShell:
 console.log("\nLive check");
 process.env.COMPUTER_CUSTOM_ELEVATED = "1";
 const helper = new HelperProcess();
+const input = new DesktopSession();
 
 try {
   const ping = (await helper.call("ping")).result;
@@ -178,7 +173,7 @@ try {
     ping.uacPromptOnSecureDesktop === undefined
       ? "unknown (installed helper predates this check)"
       : ping.uacPromptOnSecureDesktop
-        ? "yes — the consent prompt is unreachable by anything"
+        ? "yes — this helper cannot operate that desktop"
         : "NO — on the ordinary desktop, so a uiAccess helper can click it",
   );
 
@@ -201,7 +196,7 @@ try {
   if (wantFocus && elevated.length > 0) {
     const target = elevated[0];
     try {
-      await helper.call("focus_window", { handle: target.handle });
+      await input.call("focus_window", { handle: target.handle });
       // Deliberately NOT reported as proof of crossing UIPI. Measured on this
       // machine: an unsigned medium-integrity helper focuses the same window
       // and reads the same tree. SetForegroundWindow follows foreground
@@ -215,14 +210,14 @@ try {
 
   if (wantProof && elevated.length > 0) {
     const target = elevated[0];
-    const landed = await inputLands(helper, target);
+    const landed = await inputLands(helper, target,input);
     check(
       "synthetic input reaches it",
       landed,
       landed === null
         ? `could not bring ${target.process} to the front — inconclusive, not a failure`
         : landed
-          ? "the window changed — UIPI crossed"
+          ? "the window changed after injection (visual evidence only)"
           : "no change — input did not arrive",
     );
   } else if (elevated.length > 0 && !wantProof) {
@@ -230,6 +225,7 @@ try {
   }
 
 } finally {
+  input.stop();
   helper.stop();
 }
 
@@ -245,8 +241,8 @@ if (failed.length > 0) {
   const proof = results.find((r) => r.name === "synthetic input reaches it");
   if (proof?.ok === true) {
     console.log(
-      "\nCONFIRMED end to end: input typed by this helper reached a window running at" +
-        "\nhigher integrity. That is UIPI actually being crossed, not merely permitted.",
+      "\nA visual change followed the probe. For conclusive input verification," +
+        "\nuse the owned fixture's text/event readback; screenshot changes alone are inconclusive.",
     );
   } else {
     console.log(
@@ -257,8 +253,8 @@ if (failed.length > 0) {
   }
 }
 console.log(
-  "\nThe consent prompt is reachable only when BOTH are true: this helper has" +
-    "\nuiAccess, and the secure desktop is off. Even then UI Automation cannot read" +
-    "\nit, so it must be clicked by coordinates from a screenshot.\n",
+  "\nThis helper cannot operate the secure input desktop. For ordinary-desktop" +
+    "\nconsent, carry task authorization and verify actual controls/capability." +
+    "\nThis check does not change UAC policy.\n",
 );
 process.exit(failed.length === 0 ? 0 : 1);
