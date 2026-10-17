@@ -86,6 +86,16 @@ internal static class Win32
 
     [DllImport("user32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool BlockInput([MarshalAs(UnmanagedType.Bool)] bool block);
+
+    [DllImport("user32.dll")]
+    public static extern nint WindowFromPoint(POINT point);
+
+    [DllImport("user32.dll")]
+    public static extern nint GetAncestor(nint hwnd, uint flags);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
     public static extern bool GetCursorPos(out POINT lpPoint);
 
     [DllImport("user32.dll")]
@@ -146,6 +156,10 @@ internal static class Win32
     [DllImport("user32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
     public static extern bool SetForegroundWindow(nint hWnd);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    public static extern nint SendMessageTimeoutW(nint hwnd, uint message, nuint wParam, nint lParam,
+        uint flags, uint timeout, out nuint result);
 
     [DllImport("user32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]

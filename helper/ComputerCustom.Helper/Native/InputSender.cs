@@ -7,6 +7,21 @@ namespace ComputerCustom.Helper.Native;
 /// </summary>
 internal static class InputSender
 {
+    private static Win32.INPUT[] _release = [];
+
+    public static void ReleaseHeld()
+    {
+        var release = _release;
+        _release = [];
+        if (release.Length > 0) Send(release);
+    }
+
+    public static void ClearModifiers() => Send(
+        KeyEvent(0x10, 0, Win32.KEYEVENTF_KEYUP),
+        KeyEvent(0x11, 0, Win32.KEYEVENTF_KEYUP),
+        KeyEvent(0x12, 0, Win32.KEYEVENTF_KEYUP),
+        KeyEvent(0x5B, 0, Win32.KEYEVENTF_KEYUP | Win32.KEYEVENTF_EXTENDEDKEY),
+        KeyEvent(0x5C, 0, Win32.KEYEVENTF_KEYUP | Win32.KEYEVENTF_EXTENDEDKEY));
     /// <summary>
     /// Absolute mouse coordinates are expressed in a 0..65535 space spanning
     /// the whole virtual desktop, not in pixels. Converting here keeps every
@@ -109,25 +124,30 @@ internal static class InputSender
                 "Click count must be 1, 2 or 3");
         }
 
-        Move(x, y);
+        var (nx, ny) = ToAbsolute(x, y);
         var (down, up) = ButtonFlags(button);
-        for (var i = 0; i < count; i++)
+        _release = [MouseEvent(up)];
+        try
         {
-            Send(MouseEvent(down), MouseEvent(up));
-            if (i + 1 < count)
+            for (var i = 0; i < count; i++)
             {
-                // Stay inside the system double-click interval so consecutive
-                // clicks register as a double or triple click.
-                Thread.Sleep(30);
+                Send(MouseEvent(Win32.MOUSEEVENTF_MOVE | Win32.MOUSEEVENTF_ABSOLUTE | Win32.MOUSEEVENTF_VIRTUALDESK, nx, ny),
+                    MouseEvent(down), MouseEvent(up));
+                if (i + 1 < count) Thread.Sleep(30);
             }
+            _release = [];
         }
+        finally { ReleaseHeld(); }
     }
 
     public static void Drag(int fromX, int fromY, int toX, int toY, string button)
     {
         var (down, up) = ButtonFlags(button);
-        Move(fromX, fromY);
-        Send(MouseEvent(down));
+        _release = [MouseEvent(up)];
+        try
+        {
+            Move(fromX, fromY);
+            Send(MouseEvent(down));
 
         // Some applications only start a drag after seeing intermediate motion,
         // so step towards the target rather than jumping straight there.
@@ -140,7 +160,10 @@ internal static class InputSender
             Thread.Sleep(8);
         }
 
-        Send(MouseEvent(up));
+            Send(MouseEvent(up));
+            _release = [];
+        }
+        finally { ReleaseHeld(); }
     }
 
     public static void Scroll(int x, int y, int dx, int dy)
@@ -178,14 +201,23 @@ internal static class InputSender
     /// </summary>
     public static void TypeText(string text)
     {
-        foreach (var rune in text.EnumerateRunes())
+        // One SendInput transaction per chunk, not a syscall per character.
+        // Preserve UTF-16 order including surrogate pairs.
+        for (var start = 0; start < text.Length; start += 256)
         {
-            foreach (var unit in rune.ToString())
+            var length = Math.Min(256, text.Length - start);
+            var events = new List<Win32.INPUT>(length * 2);
+            var releases = new List<Win32.INPUT>(length);
+            for (var i = start; i < start + length; i++)
             {
-                Send(
-                    KeyEvent(0, unit, Win32.KEYEVENTF_UNICODE),
-                    KeyEvent(0, unit, Win32.KEYEVENTF_UNICODE | Win32.KEYEVENTF_KEYUP));
+                events.Add(KeyEvent(0, text[i], Win32.KEYEVENTF_UNICODE));
+                var up = KeyEvent(0, text[i], Win32.KEYEVENTF_UNICODE | Win32.KEYEVENTF_KEYUP);
+                events.Add(up);
+                releases.Add(up);
             }
+            _release = releases.ToArray();
+            try { Send(events.ToArray()); _release = []; }
+            finally { ReleaseHeld(); }
         }
     }
 
@@ -215,7 +247,9 @@ internal static class InputSender
             events.Add(KeyEvent(code.Vk, 0, flags));
         }
 
-        Send(events.ToArray());
+        _release = events.Skip(codes.Length).ToArray();
+        try { Send(events.ToArray()); _release = []; }
+        finally { ReleaseHeld(); }
     }
 
     public static (int X, int Y) CursorPosition()

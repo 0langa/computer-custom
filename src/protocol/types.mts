@@ -28,6 +28,10 @@ export type HelperStartMode = "normal" | "elevated";
 export type HelperOp =
   // --- look (level 0) ---
   | "ping"
+  | "begin_control"
+  | "end_control"
+  | "execute_step"
+  | "resolve_target"
   | "screenshot"
   | "list_windows"
   | "foreground_window"
@@ -52,6 +56,7 @@ export type HelperOp =
  */
 export const READ_ONLY_OPS: ReadonlySet<HelperOp> = new Set<HelperOp>([
   "ping",
+  "resolve_target",
   "screenshot",
   "list_windows",
   "foreground_window",
@@ -62,6 +67,13 @@ export const READ_ONLY_OPS: ReadonlySet<HelperOp> = new Set<HelperOp>([
 
 /** Stable error codes. The agent branches on these, not on message text. */
 export type HelperErrorCode =
+  | "CANCELLED"
+  | "CONTROL_REQUIRED"
+  | "CONTROL_EXPIRED"
+  | "CONTROL_BUSY"
+  | "INPUT_SUPPRESSION_UNAVAILABLE"
+  | "TARGET_OCCLUDED"
+  | "FOCUS_FAILED"
   /** Target window runs at a higher power level than the helper. */
   | "UIPI_BLOCKED"
   /** The secure desktop is up, so a UAC box is showing. Stop and ask the user. */
@@ -81,6 +93,7 @@ export type HelperRequest = {
   id: number;
   op: HelperOp;
   args?: Record<string, unknown>;
+  timeoutMs?: number;
 };
 
 export type HelperError = {

@@ -247,6 +247,35 @@ describe("helper client calls", () => {
       (error) =>
         error instanceof HelperClientError && error.code === "HELPER_UNAVAILABLE",
     );
+    assert.equal(client.connected, false, 'a timed-out channel must not deliver queued work later');
+  });
+
+  it("honors a shorter per-operation deadline and closes all pending requests", async () => {
+    const token = createHandshakeToken();
+    const helper = startFakeHelper({ token, onRequest: () => undefined });
+    await helper.listening;
+    const client = trackClient(new HelperClient({ pipePath: helper.pipePath, token, requestTimeoutMs: 300 }));
+    await client.connect();
+    const start = performance.now();
+    const results = await Promise.allSettled([
+      client.call('ui_tree', {}, { timeoutMs: 30 }), client.call('ping'),
+    ]);
+    assert.ok(performance.now() - start < 250, 'short deadline should terminate the worker channel');
+    assert.equal(results.every(r => r.status === 'rejected'), true);
+    assert.equal(client.connected, false);
+  });
+
+  it("cancels an in-flight operation without leaving a live input channel", async () => {
+    const token = createHandshakeToken();
+    const helper = startFakeHelper({ token, onRequest: () => undefined });
+    await helper.listening;
+    const client = trackClient(new HelperClient({ pipePath: helper.pipePath, token, requestTimeoutMs: 300 }));
+    await client.connect();
+    const controller = new AbortController();
+    const pending = client.call('ping', {}, { signal: controller.signal });
+    controller.abort();
+    await assert.rejects(pending, e => e.code === 'CANCELLED');
+    assert.equal(client.connected, false);
   });
 
   it("rejects calls made before connecting", async () => {

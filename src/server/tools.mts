@@ -11,7 +11,7 @@ import { z } from "zod";
 import { type PolicyConfig, classifyToolCall } from "../policy.mjs";
 import type { AuditLog } from "./audit.mjs";
 import { requestConfirmation } from "./confirm.mjs";
-import type { HelperProcess } from "./helper-process.mjs";
+import type { NativeWorker } from "./desktop-workers.mjs";
 import { HelperClientError } from "./helper-client.mjs";
 import type { HelperOp } from "../protocol/types.mjs";
 import {
@@ -31,7 +31,7 @@ import type { Overlay } from "./overlay.mjs";
 export type SessionState = { halted: boolean; reason?: string };
 
 export type ToolContext = {
-  helper: HelperProcess;
+  helper: NativeWorker;
   policy: PolicyConfig;
   audit: AuditLog;
   mcp: McpServer;

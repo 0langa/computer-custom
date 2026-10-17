@@ -3,7 +3,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, it } from "node:test";
-import { HelperProcess } from "../build/server/helper-process.mjs";
+import { HelperProcess, resolveHelperPath } from "../build/server/helper-process.mjs";
 
 const HELPER = path.resolve(
   "helper/ComputerCustom.Helper/bin/Debug/net10.0-windows/computer-custom-helper.exe",
@@ -64,6 +64,14 @@ describe("helper start mode", { skip: !fs.existsSync(HELPER) && "helper not buil
     await helper.call("ping");
 
     assert.deepEqual(helper.startInfo, { requested: "normal", actual: "normal" });
+  });
+
+  it("normal discovery never picks a signed installed helper that requires ShellExecute", () => {
+    const directory = fakeInstall("fixture");
+    process.env.COMPUTER_CUSTOM_ELEVATED = "0";
+    try {
+      assert.ok(!resolveHelperPath().startsWith(directory), "normal mode must use the bundled/development helper");
+    } finally { fs.rmSync(directory, { recursive: true, force: true }); }
   });
 
   it("never claims uiAccess for the unsigned development helper", async () => {
@@ -233,5 +241,23 @@ describe("helper start mode", { skip: !fs.existsSync(HELPER) && "helper not buil
 
     assert.equal(helper.startInfo, undefined);
     assert.equal(helper.running, false);
+  });
+
+  it("a cancelled elevated launch returns promptly and cannot resurrect its worker", async () => {
+    const directory = fakeInstall("fixture");
+    const helper = track(new HelperProcess());
+    const controller = new AbortController();
+    const start = performance.now();
+    const pending = helper.call("ping", {}, {signal:controller.signal});
+    setTimeout(()=>controller.abort(),20);
+    await assert.rejects(pending, error=>error.code==="CANCELLED");
+    assert.ok(performance.now()-start<200,"launch must not block the event loop");
+    await new Promise(resolve=>setTimeout(resolve,1000));
+    assert.equal(helper.running,false);
+    assert.equal(helper.startInfo,undefined);
+    // A stale ShellExecute child may still be starting. It has no input work;
+    // the native connection deadline must remove it before cleanup.
+    await new Promise(resolve=>setTimeout(resolve,5100));
+    discard(helper,directory);
   });
 });

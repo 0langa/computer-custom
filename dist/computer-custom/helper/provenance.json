@@ -1,11 +1,11 @@
 {
   "schema": 1,
-  "sourceId": "ff0374376462c9a5",
-  "builtAt": "2026-10-17T09:55:34.165Z",
+  "sourceId": "e52b2f8b4e006b5d",
+  "builtAt": "2026-10-17T10:22:08.527Z",
   "files": {
-    "computer-custom-helper.dll": "a8b4ecfa31f125343071ba712e805b3d14e6b2f790a04b63d4585d518198d418",
-    "computer-custom-helper.exe": "786eb4c6ff0273d6a2209bace47f086d8d08e93029f8bd2d319b2dc0a0d9228b",
-    "computer-custom-overlay.dll": "06282fe8d4c67de81fdb284df6ed08621707931782b5bf49e57724bd0ec1f09d",
-    "computer-custom-overlay.exe": "e37e60b1e7741c1a9fa87745d28a525533292fafdd937d89ae43ad44e846fd91"
+    "computer-custom-helper.dll": "8df71966bef89e3155fa4611d3ad15c69aada9e80a9194d8a13496d4ea37898a",
+    "computer-custom-helper.exe": "04021b95fc44d50c654d759a5c0430ee990835e44d73f73ad9e0b1e69966552a",
+    "computer-custom-overlay.dll": "f851056843aafd70b8f72c7cee3f9bf827bf0a9589db677ab4e459a4fba03051",
+    "computer-custom-overlay.exe": "bca46dd12d25924dbbe7fcf0b7465e2f9aae5dd930447616315fefe999300a3c"
   }
 }

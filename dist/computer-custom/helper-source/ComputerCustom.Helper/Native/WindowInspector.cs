@@ -15,7 +15,8 @@ internal sealed record WindowInfo(
     int Height,
     bool Minimised,
     bool Foreground,
-    string Integrity);
+    string Integrity,
+    string? ProcessStartTime);
 
 /// <summary>
 /// Enumerates and focuses top-level windows, and reports each one's integrity
@@ -70,7 +71,8 @@ internal static class WindowInspector
                 Height: rect.Bottom - rect.Top,
                 Minimised: Win32.IsIconic(handle),
                 Foreground: handle == foreground,
-                Integrity: IntegrityOf((int)pid)));
+                Integrity: IntegrityOf((int)pid),
+                ProcessStartTime: StartTimeOf((int)pid)));
 
             return true;
         }, nint.Zero);
@@ -111,7 +113,21 @@ internal static class WindowInspector
             Height: rect.Bottom - rect.Top,
             Minimised: Win32.IsIconic(handle),
             Foreground: true,
-            Integrity: IntegrityOf((int)pid));
+            Integrity: IntegrityOf((int)pid),
+            ProcessStartTime: StartTimeOf((int)pid));
+    }
+
+    public static string? StartTimeOf(int pid)
+    {
+        try
+        {
+            using var process = Process.GetProcessById(pid);
+            return process.StartTime.ToUniversalTime().Ticks.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        }
+        catch (Exception error) when (error is ArgumentException or InvalidOperationException or System.ComponentModel.Win32Exception)
+        {
+            return null;
+        }
     }
 
     public static void Focus(long handle)
@@ -131,15 +147,28 @@ internal static class WindowInspector
 
         if (Win32.SetForegroundWindow(hwnd))
         {
-            return;
+            // Activation crosses input queues asynchronously. WM_NULL waits
+            // for the target to process that activation without an arbitrary
+            // sleep or joining its potentially hung input queue.
+            Win32.SendMessageTimeoutW(hwnd, 0, 0, 0, 0x0003, 200, out _);
+            // A sent WM_NULL can run while activation is still being routed.
+            // Check the result itself; never turn a transient null foreground
+            // into a failed batch, or inject into the previous window.
+            var started = Stopwatch.GetTimestamp();
+            do
+            {
+                if (Win32.GetForegroundWindow() == hwnd) return;
+                Thread.Sleep(1);
+            } while (Stopwatch.GetElapsedTime(started).TotalMilliseconds < 200);
+            throw new HelperOperationException("FOCUS_FAILED", "The intended window did not acquire focus within 200ms.");
         }
 
         // SetForegroundWindow silently refuses when the calling process does
         // not own the foreground. Report it rather than letting the caller
         // believe the window is focused and then click the wrong place.
         throw new HelperOperationException(
-            ErrorCodes.UipiBlocked,
-            "Windows refused to bring that window to the front. It may belong to a higher integrity process.");
+            "FOCUS_FAILED",
+            "Windows refused to bring the intended window to the front.");
     }
 
     private static string ProcessName(int pid)

@@ -20,3 +20,5 @@ upstream/openai-bundled/**
 # .NET helper build output
 helper/**/bin/
 helper/**/obj/
+tests/desktop-fixture/bin/
+tests/desktop-fixture/obj/

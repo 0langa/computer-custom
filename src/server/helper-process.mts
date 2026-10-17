@@ -5,7 +5,8 @@
  * session that never touches the screen never spawns a process.
  */
 
-import { type ChildProcess, execFileSync, spawn } from "node:child_process";
+import { type ChildProcess, execFile, spawn } from "node:child_process";
+import { promisify } from "node:util";
 import crypto from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
@@ -15,6 +16,7 @@ import {
   HelperClient,
   HelperClientError,
   type HelperCallResult,
+  type HelperCallOptions,
 } from "./helper-client.mjs";
 import type { HelperOp } from "../protocol/types.mjs";
 
@@ -24,6 +26,7 @@ import type { HelperOp } from "../protocol/types.mjs";
  */
 const CONNECT_ATTEMPTS = 60;
 const CONNECT_RETRY_MS = 50;
+const runFile = promisify(execFile);
 
 export type HelperProcessOptions = {
   /** Explicit path to the helper executable. Overrides discovery. */
@@ -111,7 +114,7 @@ function installedHelperPath(): string {
 function sessionFilePath(): string {
   const base =
     process.env.LOCALAPPDATA ?? path.join(os.homedir(), "AppData", "Local");
-  return path.join(base, "computer-custom", "session.json");
+  return path.join(base, "computer-custom", `session-${crypto.randomUUID()}.json`);
 }
 
 export class HelperProcess {
@@ -121,6 +124,9 @@ export class HelperProcess {
   #starting: Promise<HelperClient> | undefined;
   #lastStderr = "";
   #startInfo: HelperStartInfo | undefined;
+  #elevatedPid: number | undefined;
+  #generation = 0;
+  #connecting: HelperClient | undefined;
 
   constructor(options: HelperProcessOptions = {}) {
     this.#options = options;
@@ -135,28 +141,53 @@ export class HelperProcess {
     return this.#startInfo;
   }
 
-  async call(op: HelperOp, args: Record<string, unknown> = {}): Promise<HelperCallResult> {
-    const client = await this.#ensureStarted();
+  async call(op: HelperOp, args: Record<string, unknown> = {}, options: HelperCallOptions = {}): Promise<HelperCallResult> {
+    if (options.signal?.aborted) throw new HelperClientError("CANCELLED", "Operation cancelled");
+    const generation = this.#generation;
+    const started = performance.now();
+    let rejectCancelled!: (error: Error) => void;
+    const cancelled = new Promise<never>((_, reject) => { rejectCancelled = reject; });
+    const cancel = (code: "CANCELLED" | "HELPER_UNAVAILABLE", message: string) => {
+      rejectCancelled(new HelperClientError(code, message));
+      if (generation === this.#generation) this.stop();
+    };
+    const onAbort = () => cancel("CANCELLED", "Operation cancelled");
+    options.signal?.addEventListener("abort", onAbort, {once:true});
+    const timer = options.timeoutMs === undefined ? undefined : setTimeout(
+      () => cancel("HELPER_UNAVAILABLE", `Helper did not answer ${op} within ${options.timeoutMs}ms including startup`), options.timeoutMs);
     try {
-      return await client.call(op, args);
+      const client = await Promise.race([this.#ensureStarted(), cancelled]);
+      const timeoutMs = options.timeoutMs === undefined ? undefined
+        : Math.max(1, Math.ceil(options.timeoutMs - (performance.now() - started)));
+      return await Promise.race([client.call(op, args, {...options, timeoutMs}), cancelled]);
     } catch (error) {
-      if (error instanceof HelperClientError && error.code === "HELPER_UNAVAILABLE") {
+      if (generation === this.#generation && error instanceof HelperClientError && (error.code === "HELPER_UNAVAILABLE" || error.code === "CANCELLED")) {
         // The helper died. Drop it so the next call starts a fresh one rather
         // than failing forever against a corpse.
         this.stop();
       }
 
       throw error;
+    } finally {
+      clearTimeout(timer);
+      options.signal?.removeEventListener("abort", onAbort);
     }
   }
 
   stop(): void {
+    this.#generation++;
     this.#startInfo = undefined;
     this.#client?.close();
     this.#client = undefined;
+    this.#connecting?.close();
+    this.#connecting = undefined;
     this.#starting = undefined;
     this.#child?.kill();
     this.#child = undefined;
+    if (this.#elevatedPid !== undefined) {
+      try { process.kill(this.#elevatedPid); } catch { /* Peer close and native watchdog also end the helper. */ }
+      this.#elevatedPid = undefined;
+    }
   }
 
   #ensureStarted(): Promise<HelperClient> {
@@ -165,20 +196,24 @@ export class HelperProcess {
     }
 
     // Concurrent tool calls must not each spawn a helper.
-    this.#starting ??= this.#start().finally(() => {
-      this.#starting = undefined;
-    });
+    if (!this.#starting) {
+      const starting = this.#start(this.#generation);
+      this.#starting = starting;
+      void starting.finally(() => {
+        if (this.#starting === starting) this.#starting = undefined;
+      }).catch(() => {});
+    }
 
     return this.#starting;
   }
 
-  async #start(): Promise<HelperClient> {
+  async #start(generation: number): Promise<HelperClient> {
     const token = crypto.randomBytes(32).toString("hex");
     const pipeName = `computer-custom.${crypto.randomUUID()}`;
     const pipePath = `\\\\.\\pipe\\${pipeName}`;
 
     if (wantsElevated()) {
-      const elevated = await this.#startElevated(pipeName, token, pipePath);
+      const elevated = await this.#startElevated(pipeName, token, pipePath, generation);
       if (elevated) {
         return elevated;
       }
@@ -188,8 +223,9 @@ export class HelperProcess {
     // back to a normal-privilege helper and say so in startInfo, rather than
     // failing outright or pretending the helper can reach elevated windows.
     const executable = this.#options.executablePath ?? resolveHelperPath();
+    if (generation !== this.#generation) throw new HelperClientError("CANCELLED", "Helper startup cancelled");
 
-    const child = spawn(executable, ["--pipe", pipeName], {
+    const child = spawn(executable, ["--pipe", pipeName, "--parent", String(process.pid)], {
       stdio: ["pipe", "ignore", "pipe"],
       windowsHide: true,
     });
@@ -217,7 +253,13 @@ export class HelperProcess {
     // other processes on this machine can read.
     child.stdin?.write(`${token}\n`);
 
-    const client = await Promise.race([this.#connect(pipePath, token), exited]);
+    let client: HelperClient;
+    try { client = await Promise.race([this.#connect(pipePath, token, generation), exited]); }
+    catch (error) { child.kill(); throw error; }
+    if (generation !== this.#generation) {
+      client.close(); child.kill();
+      throw new HelperClientError("CANCELLED", "Helper startup cancelled");
+    }
     this.#client = client;
     this.#startInfo = {
       requested: wantsElevated() ? "elevated" : "normal",
@@ -253,6 +295,7 @@ export class HelperProcess {
     pipeName: string,
     token: string,
     pipePath: string,
+    generation: number,
   ): Promise<HelperClient | undefined> {
     const installed = installedHelperPath();
     if (!fs.existsSync(installed)) {
@@ -264,19 +307,30 @@ export class HelperProcess {
     fs.writeFileSync(sessionFile, JSON.stringify({ pipeName, token }), "utf8");
 
     try {
-      execFileSync(
+      const launched = await runFile(
         "powershell.exe",
         [
           "-NoProfile",
           "-NonInteractive",
           "-Command",
-          `Start-Process -WindowStyle Hidden -FilePath ${quoteForPowerShell(installed)} -ArgumentList '--session-file',${quoteForPowerShell(sessionFile)}`,
+          `(Start-Process -PassThru -WindowStyle Hidden -FilePath ${quoteForPowerShell(installed)} -ArgumentList '--session-file',${quoteForPowerShell('"' + sessionFile + '"')},'--parent','${process.pid}').Id`,
         ],
-        { stdio: "ignore", windowsHide: true },
+        { windowsHide: true, encoding: "utf8", timeout: 10000 },
       );
+      const pid = Number(launched.stdout.trim());
+      if (generation !== this.#generation) {
+        try { process.kill(pid); } catch { /* Native startup deadline handles inaccessible children. */ }
+        throw new HelperClientError("CANCELLED", "Helper startup cancelled");
+      }
+      this.#elevatedPid = pid;
+      if (!Number.isSafeInteger(this.#elevatedPid) || this.#elevatedPid <= 0) {
+        this.#elevatedPid = undefined;
+        throw new Error("ShellExecute returned no helper process id");
+      }
     } catch (error) {
       // Leaving a token file behind would be careless.
       fs.rmSync(sessionFile, { force: true });
+      if (error instanceof HelperClientError) throw error;
       throw new HelperClientError(
         "HELPER_UNAVAILABLE",
         `Could not start the elevated helper: ${(error as Error).message}`,
@@ -284,7 +338,7 @@ export class HelperProcess {
     }
 
     try {
-      const client = await this.#connect(pipePath, token);
+      const client = await this.#connect(pipePath, token, generation);
       this.#client = client;
       const stale = stalenessNotice(installed);
       this.#startInfo = {
@@ -299,18 +353,29 @@ export class HelperProcess {
     }
   }
 
-  async #connect(pipePath: string, token: string): Promise<HelperClient> {
+  async #connect(pipePath: string, token: string, generation: number): Promise<HelperClient> {
     let lastError: unknown;
+    const deadline = performance.now() + 3000;
 
     for (let attempt = 0; attempt < CONNECT_ATTEMPTS; attempt++) {
-      const client = new HelperClient({ pipePath, token });
+      if (generation !== this.#generation) throw new HelperClientError("CANCELLED", "Helper startup cancelled");
+      const remaining = deadline - performance.now();
+      if (remaining <= 0) break;
+      const client = new HelperClient({ pipePath, token, handshakeTimeoutMs: Math.min(500, Math.ceil(remaining)) });
+      this.#connecting = client;
       try {
         await client.connect();
+        if (generation !== this.#generation) {
+          client.close();
+          throw new HelperClientError("CANCELLED", "Helper startup cancelled");
+        }
         return client;
       } catch (error) {
         client.close();
         lastError = error;
         await new Promise((resolve) => setTimeout(resolve, CONNECT_RETRY_MS));
+      } finally {
+        if (this.#connecting === client) this.#connecting = undefined;
       }
     }
 
@@ -383,14 +448,12 @@ export function resolveHelperPath(): string {
   }
 
   const here = path.dirname(fileURLToPath(import.meta.url));
-  const programFiles = process.env.ProgramFiles ?? "C:\Program Files";
   const candidates = [
-    // The signed, installed copy, if the elevated setup has been run.
-    path.join(programFiles, "Computer Custom", "computer-custom-helper.exe"),
     // Packaged plugin layout: scripts/ and helper/ side by side.
     path.resolve(here, "..", "helper", "computer-custom-helper.exe"),
     path.resolve(here, "..", "..", "helper", "computer-custom-helper.exe"),
     // Development layout, straight out of `dotnet build`.
+    path.resolve(here, "..", "..", "dist", "computer-custom", "helper", "computer-custom-helper.exe"),
     path.resolve(
       here,
       "..",

@@ -17,6 +17,10 @@ internal static class Operations
     public static Outcome Execute(HelperRequest request) => request.Op switch
     {
         "ping" => new Outcome(Ping()),
+        "begin_control" => new Outcome(ControlLease.Begin(request.Args)),
+        "end_control" => new Outcome(ControlLease.End(request.Args)),
+        "execute_step" => new Outcome(PreparedInput.Execute(request.Args)),
+        "resolve_target" => new Outcome(TargetResolver.Describe(request.Args)),
         "screenshot" => Screenshot(request.Args),
         "list_windows" => new Outcome(WindowInspector.List()),
         "foreground_window" => new Outcome(WindowInspector.Foreground()),

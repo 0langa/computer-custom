@@ -74,6 +74,14 @@ if (-not $ProjectPath) {
 }
 $scriptPath = Join-Path $scriptRoot 'install-elevated-helper.ps1'
 
+function Assert-ChildPath([string] $Target, [string] $Parent) {
+    $resolvedTarget = [IO.Path]::GetFullPath($Target).TrimEnd('\')
+    $resolvedParent = [IO.Path]::GetFullPath($Parent).TrimEnd('\') + '\'
+    if (-not $resolvedTarget.StartsWith($resolvedParent, [StringComparison]::OrdinalIgnoreCase)) {
+        throw "Path must be a child of ${Parent}: $Target"
+    }
+}
+
 function Write-Step { param([string] $Message) Write-Host "  $Message" }
 function Write-Head { param([string] $Message) Write-Host "`n$Message" -ForegroundColor Cyan }
 function Write-Note { param([string] $Message) Write-Host "  ! $Message" -ForegroundColor Yellow }
@@ -126,9 +134,10 @@ if ($Uninstall) {
         if (-not $DryRun) { Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false }
     }
 
+    Assert-ChildPath $InstallDir $env:ProgramFiles
     if (Test-Path $InstallDir) {
         Write-Step "Delete: $InstallDir"
-        if (-not $DryRun) { Remove-Item -Path $InstallDir -Recurse -Force }
+        if (-not $DryRun) { Remove-Item -LiteralPath $InstallDir -Recurse -Force }
     }
     else {
         Write-Step "Nothing installed at $InstallDir"
@@ -162,6 +171,8 @@ Write-Step "Certificate:  $CertSubject (self-signed, trusted on this machine onl
 
 # 1. Build a copy whose manifest requests uiAccess.
 $staging = Join-Path ([IO.Path]::GetTempPath()) ("computer-custom-uiaccess-" + [Guid]::NewGuid().ToString('N'))
+Assert-ChildPath $staging ([IO.Path]::GetTempPath())
+Assert-ChildPath $InstallDir $env:ProgramFiles
 Write-Head 'Step 1 of 5: build the helper with uiAccess'
 Write-Step "dotnet publish -c Release -p:UiAccess=true -> $staging"
 
@@ -236,7 +247,7 @@ if (-not $DryRun) {
     Write-Step "Build id $buildId"
 
     Copy-Item -Path (Join-Path $staging '*') -Destination $InstallDir -Recurse -Force
-    Remove-Item $staging -Recurse -Force
+    Remove-Item -LiteralPath $staging -Recurse -Force
 }
 
 $installedExe = Join-Path $InstallDir $exeName

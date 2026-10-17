@@ -24,12 +24,15 @@ internal static class Program
             }
 
             var (pipeName, token) = session.Value;
+            using var parent = int.TryParse(Option(args, "--parent"), out var parentId)
+                ? new ParentWatch(parentId) : null;
 
             // Without this, every coordinate and capture is wrong on a scaled
             // display: Windows would report and accept virtualised pixels.
             Win32.SetProcessDpiAwarenessContext(Win32.DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
 
-            Serve(pipeName, token);
+            try { Serve(pipeName, token); }
+            finally { ControlLease.Release(); }
             return 0;
         }
         catch (Exception error)
@@ -130,7 +133,8 @@ internal static class Program
     private static void Serve(string pipeName, string token)
     {
         using var server = CreatePipe(pipeName);
-        server.WaitForConnection();
+        using (var startupDeadline = new OperationDeadline(5000)) server.WaitForConnection();
+        using var peer = new PeerWatch(server.SafePipeHandle);
 
         // We speak first and prove the token. The server generated it and gave
         // it to us privately on stdin, so only the real helper can present it.
@@ -200,7 +204,7 @@ internal static class Program
             PipeDirection.InOut,
             maxNumberOfServerInstances: 1,
             PipeTransmissionMode.Byte,
-            PipeOptions.None,
+            PipeOptions.Asynchronous,
             inBufferSize: 0,
             outBufferSize: 0,
             security);
@@ -208,6 +212,10 @@ internal static class Program
 
     private static void Dispatch(Stream stream, HelperRequest request)
     {
+        // The caller's deadline alone cannot stop a stuck elevated provider.
+        // The native worker must terminate itself, releasing BlockInput as well.
+        using var deadline = new OperationDeadline(Math.Clamp(request.TimeoutMs
+            ?? (request.Op == "ui_tree" ? 2000 : 30000), 1, 30000));
         try
         {
             var outcome = Operations.Execute(request);

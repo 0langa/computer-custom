@@ -44,6 +44,8 @@ export type HelperCallResult = {
   binary?: Buffer;
 };
 
+export type HelperCallOptions = { timeoutMs?: number; signal?: AbortSignal };
+
 export type HelperClientOptions = {
   pipePath: string;
   token: string;
@@ -55,6 +57,7 @@ type PendingCall = {
   resolve: (value: HelperCallResult) => void;
   reject: (error: Error) => void;
   timer: NodeJS.Timeout;
+  detachAbort?: () => void;
   /** Set once a response announced a binary frame we are still waiting for. */
   awaitingBinary?: { byteLength: number; result: unknown };
 };
@@ -139,27 +142,30 @@ export class HelperClient {
   }
 
   /** Send one operation and wait for its response. */
-  async call(op: HelperOp, args: Record<string, unknown> = {}): Promise<HelperCallResult> {
+  async call(op: HelperOp, args: Record<string, unknown> = {}, options: HelperCallOptions = {}): Promise<HelperCallResult> {
     if (!this.connected || !this.#socket) {
       throw new HelperClientError("HELPER_UNAVAILABLE", "Helper is not connected");
     }
 
     const id = this.#nextId++;
     const socket = this.#socket;
+    if (options.signal?.aborted) throw new HelperClientError("CANCELLED", "Operation cancelled before dispatch");
+    const timeoutMs = options.timeoutMs ?? this.#options.requestTimeoutMs;
 
     return new Promise<HelperCallResult>((resolve, reject) => {
       const timer = setTimeout(() => {
-        this.#pending.delete(id);
-        reject(
-          new HelperClientError(
-            "HELPER_UNAVAILABLE",
-            `Helper did not answer ${op} within ${this.#options.requestTimeoutMs}ms`,
-          ),
-        );
-      }, this.#options.requestTimeoutMs);
+        this.#failAll("HELPER_UNAVAILABLE", `Helper did not answer ${op} within ${timeoutMs}ms`);
+        this.close();
+      }, timeoutMs);
 
-      this.#pending.set(id, { resolve, reject, timer });
-      socket.write(encodeJsonFrame({ id, op, args }));
+      const onAbort = () => {
+        this.#failAll("CANCELLED", `Cancelled ${op}`);
+        this.close();
+      };
+      const detachAbort = () => options.signal?.removeEventListener("abort", onAbort);
+      this.#pending.set(id, { resolve, reject, timer, detachAbort });
+      options.signal?.addEventListener("abort", onAbort, { once: true });
+      socket.write(encodeJsonFrame({ id, op, args, ...(options.timeoutMs !== undefined ? { timeoutMs } : {}) }));
     });
   }
 
@@ -199,6 +205,7 @@ export class HelperClient {
       this.#pending.delete(target.id);
       if (pending) {
         clearTimeout(pending.timer);
+        pending.detachAbort?.();
         pending.resolve({
           result: pending.awaitingBinary?.result,
           binary: Buffer.from(frame),
@@ -256,6 +263,7 @@ export class HelperClient {
     if (!message.ok) {
       this.#pending.delete(message.id);
       clearTimeout(pending.timer);
+      pending.detachAbort?.();
       pending.reject(toHelperClientError(message.error));
       return;
     }
@@ -272,6 +280,7 @@ export class HelperClient {
 
     this.#pending.delete(message.id);
     clearTimeout(pending.timer);
+    pending.detachAbort?.();
     pending.resolve({ result: message.result });
   }
 
@@ -283,6 +292,7 @@ export class HelperClient {
     for (const [id, pending] of this.#pending) {
       this.#pending.delete(id);
       clearTimeout(pending.timer);
+      pending.detachAbort?.();
       pending.reject(new HelperClientError(code, message));
     }
   }

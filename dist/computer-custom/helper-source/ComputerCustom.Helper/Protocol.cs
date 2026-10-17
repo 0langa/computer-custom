@@ -37,6 +37,9 @@ internal sealed class HelperRequest
 
     [JsonPropertyName("args")]
     public JsonElement Args { get; init; }
+
+    [JsonPropertyName("timeoutMs")]
+    public int? TimeoutMs { get; init; }
 }
 
 internal sealed class HelperErrorBody

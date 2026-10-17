@@ -13,7 +13,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { AuditLog } from "./audit.mjs";
 import { loadServerConfig } from "./config.mjs";
-import { HelperProcess } from "./helper-process.mjs";
+import { DesktopWorkers } from "./desktop-workers.mjs";
 import { Overlay } from "./overlay.mjs";
 import { type SessionState, registerTools } from "./tools.mjs";
 
@@ -46,7 +46,7 @@ retry, do not work around it, tell them and wait.`;
 async function main(): Promise<void> {
   const config = loadServerConfig();
   const audit = new AuditLog(config.policy, config.auditPath);
-  const helper = new HelperProcess();
+  const helper = new DesktopWorkers();
   const session: SessionState = { halted: false };
 
   // The stop key has to mean something immediately, so it kills the helper

@@ -25,7 +25,7 @@ internal sealed record UiNode(
 /// meant rather than on a guessed pixel. Screenshots stay available for the
 /// cases this cannot see: custom-drawn interfaces, games, and canvases.
 /// </summary>
-internal sealed record UiTreeResult(UiNode Root, int NodeCount, bool Truncated, bool InteractiveOnly);
+internal sealed record UiTreeResult(UiNode Root, int NodeCount, bool Truncated, bool InteractiveOnly, string ObservationId);
 
 internal static class UiTree
 {
@@ -48,6 +48,7 @@ internal static class UiTree
     /// a stale view is exactly the mistake this design is meant to prevent.
     /// </summary>
     private static readonly Dictionary<string, AutomationElement> Cache = [];
+    private static string _observationId = string.Empty;
 
     public static UiTreeResult Read(long windowHandle, int maxDepth, bool interactiveOnly, int maxNodes)
     {
@@ -72,6 +73,7 @@ internal static class UiTree
         }
 
         Cache.Clear();
+        _observationId = Guid.NewGuid().ToString("N");
         var budget = Math.Clamp(maxNodes, 1, HardMaxNodes);
         var built = Build(root, Math.Max(1, maxDepth), interactiveOnly, ref budget);
 
@@ -85,7 +87,7 @@ internal static class UiTree
                 // single root so the shape stays a tree.
                 : new UiNode(string.Empty, "window", string.Empty, null, null, 0, 0, 0, 0, true, false, false, built);
 
-        return new UiTreeResult(node, Count(node), budget <= 0, interactiveOnly);
+        return new UiTreeResult(node, Count(node), budget <= 0, interactiveOnly, _observationId);
     }
 
     private static int Count(UiNode node) =>
@@ -118,7 +120,8 @@ internal static class UiTree
         {
             var info = element.Current;
             var rect = info.BoundingRectangle;
-            var elementId = RuntimeIdOf(element);
+            var runtimeId = RuntimeIdOf(element);
+            var elementId = runtimeId is null ? null : $"{_observationId}:{runtimeId}";
 
             if (elementId is not null)
             {
