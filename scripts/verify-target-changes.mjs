@@ -42,7 +42,16 @@ try{
   if(!modalOnly){
   const modal=(await desktop.call('list_windows')).find(w=>w.pid===target.pid&&w.title==='Computer Custom modal fixture');assert.ok(modal);
   await desktop.run([{op:'key',target:modal,args:{keys:['alt','f4']}}],'Close owned modal fixture',{inputMode:normal?'ignore':'block'});
-  cover=fixture(['--cover']);await cover.next();
+  cover=fixture(['--cover']);const coverReady=await cover.next();
+  await cover.command(`bounds:${original.x},${original.y},420,280`);
+  await cover.command('raise-cover');
+  const occlusionState=(await f.command('state')).windows[0];
+  if(occlusionState.hitAtA!==coverReady.windows[0].handle){
+    const snapshot=await desktop.raw('screenshot',{x:original.x,y:original.y,width:420,height:280});
+    const picture=snapshot.content.find(part=>part.type==='image');if(picture)fs.writeFileSync('.cache/occlusion-debug.png',Buffer.from(picture.data,'base64'));
+    console.log(JSON.stringify({windows:(await desktop.call('list_windows')).filter(w=>[target.pid,coverReady.pid].includes(w.pid))}));
+  }
+  assert.equal(occlusionState.hitAtA,coverReady.windows[0].handle,JSON.stringify({occlusionState,cover:coverReady.windows[0]}));
   batch=await finish(await prepare({actions:[{op:'click',target,args:original.a}],flush:true,title:'Occluded target'}));
   assert.equal(batch.state,'failed');assert.equal(batch.error.code,'TARGET_OCCLUDED');
   assert.equal((await f.command('state')).windows[0].aCount,1);

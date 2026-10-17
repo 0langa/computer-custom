@@ -7,7 +7,7 @@ export type PreparedAction = {op:string;target:WindowTarget;args:Record<string,u
 export type BatchState = "prepared"|"queued"|"notifying"|"countdown"|"snoozed"|"running"|"cancelling"|"succeeded"|"failed"|"cancelled";
 export type Batch = {
   id:string;owner:string;title:string;state:BatchState;revision:number;actions:PreparedAction[];
-  settings:DesktopSettings;completed:number;createdAt:string;readyAt?:string;resumeAt?:string;
+  settings:DesktopSettings;total:number;completed:number;createdAt:string;readyAt?:string;resumeAt?:string;
   startedAt?:string;finishedAt?:string;error?:{code:string;message:string};
 };
 type Clock = {now():number;setTimeout(callback:()=>void,ms:number):unknown;clearTimeout(timer:unknown):void};
@@ -30,8 +30,11 @@ export class BatchCoordinator {
   readonly #clock:Clock;
   readonly #batches=new Map<string,Batch>();
   readonly #waiters=new Map<string,Set<()=>void>>();
+  readonly #disconnected=new Set<string>();
+  readonly #history=new Map<string,number>();
   #queue:string[]=[];
   #active:string|undefined;
+  #noticePending:string|undefined;
   #phaseTimer:unknown;
   #wakeTimer:unknown;
   #controller:AbortController|undefined;
@@ -47,6 +50,7 @@ export class BatchCoordinator {
   }
 
   prepare(owner:string,request:{id?:string;actions:PreparedAction[];flush?:boolean;title?:string;inputMode?:"block"|"ignore"}):Batch {
+    this.#prune();this.#disconnected.delete(owner);
     let batch:Batch;
     if(request.id){
       batch=this.#owned(owner,request.id);
@@ -54,10 +58,11 @@ export class BatchCoordinator {
     }else{
       if(request.actions.length===0)throw new BatchError("BAD_ARGS","Prepare at least one action.");
       batch={id:randomUUID(),owner,title:request.title??"Computer Custom",state:"prepared",revision:0,
-        actions:[],settings:{...this.settings,inputMode:request.inputMode??this.settings.inputMode},completed:0,createdAt:this.#iso()};
+        actions:[],settings:{...this.settings,inputMode:request.inputMode??this.settings.inputMode},total:0,completed:0,createdAt:this.#iso()};
       this.#batches.set(batch.id,batch);
     }
     batch.actions.push(...structuredClone(request.actions));
+    batch.total=batch.actions.length;
     if(request.flush||(request.flush!==false&&batch.actions.length>=batch.settings.batchThreshold)){
       batch.state="queued";this.#queue.push(batch.id);this.#schedule();
     }
@@ -74,9 +79,14 @@ export class BatchCoordinator {
   }
 
   disconnect(owner:string):void {
-    for(const batch of this.#batches.values())if(batch.owner===owner&&!terminal.has(batch.state))
-      this.#cancel(batch,new BatchError("CANCELLED","The owning session disconnected."));
+    this.#disconnected.add(owner);
+    for(const batch of this.#batches.values())if(batch.owner===owner){
+      if(!terminal.has(batch.state))this.#cancel(batch,new BatchError("CANCELLED","The owning session disconnected."));
+      if(terminal.has(batch.state)){this.#batches.delete(batch.id);this.#history.delete(batch.id);}
+    }
+    this.#forgetDisconnected(owner);
   }
+  cancelFromNotice(id:string):void{const batch=this.#batches.get(id);if(batch)this.#cancel(batch,new BatchError("CANCELLED","Batch cancelled from its notice."));}
 
   snooze():string {
     this.#resumeAt=this.#clock.now()+this.settings.snoozeMs;
@@ -87,9 +97,9 @@ export class BatchCoordinator {
         this.#cancel(batch,new BatchError("CANCELLED","Snoozed during execution; inspect progress before preparing the remainder."));
       }else if(["queued","notifying","countdown","snoozed"].includes(batch.state)){
         if(this.#active===batch.id){
-          this.#clock.clearTimeout(this.#phaseTimer);this.#active=undefined;
+          this.#clock.clearTimeout(this.#phaseTimer);
           if(!this.#queue.includes(batch.id))this.#queue.unshift(batch.id);
-          if(batch.actions.length>1)void this.#options.hideNotice(this.#snapshot(batch)).catch(()=>{});
+          if(this.#noticePending!==batch.id)void this.#retireNotice(batch).catch(()=>{});
         }
         batch.state="snoozed";batch.resumeAt=resumeAt;delete batch.readyAt;this.#touch(batch);
       }
@@ -120,6 +130,7 @@ export class BatchCoordinator {
   }
 
   #owned(owner:string,id:string):Batch {
+    this.#prune();
     const batch=this.#batches.get(id);
     if(!batch||batch.owner!==owner)throw new BatchError("NO_BATCH","Batch not found for this owner.");
     return batch;
@@ -131,8 +142,28 @@ export class BatchCoordinator {
   }
   #iso():string{return new Date(this.#clock.now()).toISOString();}
   #touch(batch:Batch):void {
+    if(terminal.has(batch.state)){
+      batch.actions=[];this.#history.set(batch.id,this.#clock.now());
+    }
     batch.revision++;this.#options.onChange?.(this.#snapshot(batch));
     for(const wake of [...(this.#waiters.get(batch.id)??[])])wake();
+    if(terminal.has(batch.state)&&this.#disconnected.has(batch.owner)){
+      this.#batches.delete(batch.id);this.#history.delete(batch.id);this.#forgetDisconnected(batch.owner);
+    }
+    this.#prune();
+  }
+  #forgetDisconnected(owner:string):void{
+    if(![...this.#batches.values()].some(batch=>batch.owner===owner))this.#disconnected.delete(owner);
+  }
+  #prune():void{
+    for(const [id,finished] of this.#history){
+      if(this.#history.size<=256&&this.#clock.now()-finished<=300000)break;
+      this.#history.delete(id);this.#batches.delete(id);
+    }
+  }
+  async #retireNotice(batch:Batch):Promise<void>{
+    try{if(batch.total>1)await this.#options.hideNotice(this.#snapshot(batch));}
+    finally{if(this.#active===batch.id){this.#active=undefined;this.#schedule();}}
   }
   #schedule():void {
     if(this.#scheduled)return;
@@ -159,14 +190,18 @@ export class BatchCoordinator {
       batch.state="countdown";this.#touch(batch);void this.#execute(batch,false);return;
     }
     batch.state="notifying";this.#touch(batch);
+    this.#noticePending=batch.id;
     try{
       await this.#options.showNotice(this.#snapshot(batch));
-      if(this.#active!==batch.id||batch.state!=="notifying")return;
+      this.#noticePending=undefined;
+      if(this.#active!==batch.id||batch.state!=="notifying"){await this.#retireNotice(batch);return;}
       batch.state="countdown";batch.readyAt=new Date(this.#clock.now()+batch.settings.countdownMs).toISOString();this.#touch(batch);
       this.#phaseTimer=this.#clock.setTimeout(()=>{void this.#execute(batch!);},batch.settings.countdownMs);
     }catch(error){
+      this.#noticePending=undefined;
       if(this.#active===batch.id){
-        this.#fail(batch,error);this.#active=undefined;this.#schedule();
+        if(!terminal.has(batch.state)&&!["snoozed"].includes(batch.state))this.#fail(batch,error);
+        await this.#retireNotice(batch);
       }
     }
   }
@@ -177,8 +212,8 @@ export class BatchCoordinator {
       batch.error={code:reason.code,message:reason.message};this.#controller?.abort(reason);this.#touch(batch);return;
     }
     if(this.#active===batch.id){
-      this.#clock.clearTimeout(this.#phaseTimer);this.#active=undefined;
-      if(batch.actions.length>1)void this.#options.hideNotice(this.#snapshot(batch)).catch(()=>{});
+      this.#clock.clearTimeout(this.#phaseTimer);
+      if(this.#noticePending!==batch.id)void this.#retireNotice(batch).catch(()=>{});
     }
     this.#queue=this.#queue.filter(id=>id!==batch.id);
     batch.state="cancelled";batch.error={code:reason.code,message:reason.message};batch.finishedAt=this.#iso();this.#touch(batch);this.#schedule();

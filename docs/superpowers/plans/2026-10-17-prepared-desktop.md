@@ -14,7 +14,7 @@ redundant keyword and magic-phrase gates by default. User-authorized tasks may
 include matching admin consent. Do not change UAC configuration automatically.
 
 Prepared operations are target-bound and run locally without model round trips.
-Persistent settings default to five actions, 15-second notification countdown,
+Persistent settings default to five actions, five-second notification countdown,
 five-minute snooze, and ten-second maximum takeover. Partial batches flush for
 dependencies/completion. Notice does not require acknowledgment. Suppress user
 input during exclusive execution; never hold input while the model reasons.
@@ -49,8 +49,9 @@ observation, authorization, queue/countdown, execution, recovery separately.
    user policy, no title regex ceremony, scoped admin authorization, honest
    capability results; bundled-first discovery and no automatic wrappers.
 6. Windows fixture and repeatable acceptance/benchmarks. Native, Electron,
-   browser, canvas, elevated, mixed-monitor/DPI, failure injection; actual
-   bundled runtime comparison. User authorizes live work on HUAWEI display
+   browser, canvas, elevated, mixed-monitor/DPI, failure injection. Further
+   bundled runtime comparison was waived by the human after live results;
+   roughly one second per action is accepted. User authorizes work on HUAWEI display
    and demands measurable sequence accuracy across both screens in one flush.
 7. Independent whole-branch review, fixes, packaging and completion audit.
 
@@ -58,8 +59,9 @@ observation, authorization, queue/countdown, execution, recovery separately.
 
 Use behavioral RED→GREEN tests per task, then suite checks. Warm simple dispatch
 p95 <250ms; observations return/time out in 2s; no takeover >10s; zero wrong
-targets in regression runs; common task execution within 25% of bundled tool
-(exclude intentional notice/snooze). Prove blocking and ignoring physical input
+targets in regression runs; roughly one second per action is accepted without
+further bundled comparison (exclude intentional notice/snooze). Single flushed
+actions execute immediately. Prove blocking and ignoring physical input
 as well as release, not merely synthetic delivery. Test competing sessions,
 held keys, occlusion, geometry/DPI changes, stale identities, unexpected modals,
 provider hangs, disconnect/cancel races, crashes, repeated snooze. Test packaged

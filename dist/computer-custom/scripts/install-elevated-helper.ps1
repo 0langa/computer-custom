@@ -254,8 +254,7 @@ if (-not $DryRun) {
         param($Directory)
         $candidate = Join-Path $Directory $exeName
         if ((Get-AuthenticodeSignature -FilePath $candidate).Status -ne 'Valid') { throw 'Installed signature validation failed' }
-        & node $checker $candidate | Out-Host
-        if ($LASTEXITCODE -ne 0) { throw 'Protected helper startup/UIAccess verification failed' }
+        Invoke-HelperStartupCheck -Checker $checker -Candidate $candidate
     }
     Remove-Item -LiteralPath $staging -Recurse -Force
 }

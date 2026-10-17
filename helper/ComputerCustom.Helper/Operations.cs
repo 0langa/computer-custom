@@ -108,7 +108,8 @@ internal static class Operations
             // 166 KB of JSON, which would swamp an agent turn. The caller raises
             // this when it genuinely needs more, and `truncated` always says
             // whether anything was left out.
-            OptionalInt(args, "maxNodes") ?? UiTree.DefaultMaxNodes);
+            OptionalInt(args, "maxNodes") ?? UiTree.DefaultMaxNodes,
+            OptionalBool(args, "internalQuery") ?? false);
 
     private static object CursorPosition()
     {

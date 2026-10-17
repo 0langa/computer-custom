@@ -44,6 +44,8 @@ internal static class Program
                 {
                     if (command == "quit") { Application.Exit(); return; }
                     if (command == "reset") foreach (var w in Windows) w.Reset();
+                    if (command == "raise-cover") { Windows[0].TopMost=false;Windows[0].TopMost=true; }
+                    if(command.StartsWith("kill-on-down:"))Windows[0].KillOnDown(int.Parse(command[13..]));
                     if (command.StartsWith("bounds:")) {
                         var b=command[7..].Split(',').Select(int.Parse).ToArray();Windows[0].Bounds=new Rectangle(b[0],b[1],b[2],b[3]);
                     }
@@ -85,6 +87,16 @@ internal sealed class FixtureWindow : Form
     private int _bCount;
     private readonly bool _hangUia;
     private readonly Label? _phase;
+    private int? _killOnDown;
+    private int _mouseDowns;
+    private int _mouseUps;
+    private int _dragMoves;
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    private static extern short GetAsyncKeyState(int key);
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    private static extern nint WindowFromPoint(Point point);
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    private static extern nint GetAncestor(nint window,uint flag);
 
     public FixtureWindow(int screen, Screen display, bool hangUia = false, bool cover = false,bool physical=false)
     {
@@ -125,6 +137,13 @@ internal sealed class FixtureWindow : Form
     }
 
     public void Reset() { _aCount = 0; _bCount = 0; _text.Clear(); _events.Clear(); _textValues.Clear(); }
+    public void KillOnDown(int pid){_killOnDown=pid;}
+    protected override void OnMouseDown(MouseEventArgs e){
+        _mouseDowns++;base.OnMouseDown(e);
+        if(_killOnDown is int pid){_killOnDown=null;try{Process.GetProcessById(pid).Kill();}catch(InvalidOperationException){}}
+    }
+    protected override void OnMouseUp(MouseEventArgs e){_mouseUps++;base.OnMouseUp(e);}
+    protected override void OnMouseMove(MouseEventArgs e){if(e.Button.HasFlag(MouseButtons.Left))_dragMoves++;base.OnMouseMove(e);}
     public void Phase(string value){if(_phase is not null)_phase.Text=value.Replace("|","\n");}
 
     private object Centre(Control control)
@@ -134,8 +153,10 @@ internal sealed class FixtureWindow : Form
     }
 
     public object Snapshot() => new { screen = _screen, handle = Handle.ToInt64(),
-        x = Left, y = Top, width = Width, height = Height,
+        x = Left, y = Top, width = Width, height = Height,topMost=TopMost,visible=Visible,
+        hitAtA=GetAncestor(WindowFromPoint(_a.PointToScreen(new Point(_a.Width/2,_a.Height/2))),2).ToInt64(),
         dpi = DeviceDpi, textFocused = _text.Focused, activeControl = ActiveControl?.Name,
+        mouseDowns=_mouseDowns,mouseUps=_mouseUps,dragMoves=_dragMoves,leftDown=(GetAsyncKeyState(1)&0x8000)!=0,
         a = Centre(_a), b = Centre(_b), input = Centre(_text),
         probe = new { x = PointToScreen(new Point(25, ClientSize.Height - 20)).X - Left,
                       y = PointToScreen(new Point(25, ClientSize.Height - 20)).Y - Top },

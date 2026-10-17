@@ -86,7 +86,7 @@ test('competing sessions cannot enter input together, including during disconnec
   assert.equal(coordinator.status('a',a.id).state,'cancelling');
   await clock.advance(10000);assert.deepEqual(started,['a']);
   release();await flush();
-  assert.equal(coordinator.status('a',a.id).state,'cancelled');
+  assert.throws(()=>coordinator.status('a',a.id),e=>e.code==='NO_BATCH');
   await clock.advance(15000);assert.deepEqual(started,['a','b']);
   assert.equal(coordinator.status('b',b.id).state,'succeeded');
 });
@@ -122,4 +122,31 @@ test('an explicitly deferred script stays together until its dependency flush',a
   const initial=coordinator.prepare('a',{actions:actions(12),flush:false});
   await flush();assert.equal(coordinator.status('a',initial.id).state,'prepared');assert.equal(notices.length,0);
   coordinator.prepare('a',{id:initial.id,actions:[],flush:true});await flush();assert.equal(notices.length,1);
+});
+
+for(const mode of ['cancel','snooze'])test(`${mode} during notice creation hides the eventual notice before the next owner can show one`,async()=>{
+  const clock=new Clock();let finishShow,visible;const order=[];
+  const coordinator=new BatchCoordinator({clock,run:async()=>{},showNotice:async batch=>{
+    if(batch.owner==='a')await new Promise(resolve=>finishShow=resolve);
+    visible=batch.id;order.push(`shown:${batch.owner}`);
+  },hideNotice:async batch=>{if(visible===batch.id)visible=undefined;order.push(`hidden:${batch.owner}`);}});
+  const a=coordinator.prepare('a',{actions:actions(2),flush:true});
+  await flush();if(mode==='cancel')coordinator.cancel('a',a.id);else {coordinator.snooze();coordinator.snooze();}
+  const b=coordinator.prepare('b',{actions:actions(2),flush:true});await flush();
+  finishShow();await flush();
+  assert.notEqual(visible,a.id);assert.ok(order.indexOf('hidden:a')>order.indexOf('shown:a'));
+  if(mode==='cancel'){assert.equal(visible,b.id);assert.ok(order.indexOf('shown:b')>order.indexOf('hidden:a'));}
+  coordinator.close();
+});
+
+test('terminal batches release payloads, bound summaries, and discard disconnected owner history',async()=>{
+  const {coordinator,clock}=setup();const ids=[];
+  for(let n=0;n<260;n++){
+    const b=coordinator.prepare('owner',{actions:[{...actions()[0],op:'type_text',args:{text:'private payload'}}],flush:true});ids.push(b.id);await flush();
+  }
+  const latest=coordinator.status('owner',ids.at(-1));assert.equal(latest.total,1);assert.deepEqual(latest.actions,[]);
+  assert.throws(()=>coordinator.status('owner',ids[0]),e=>e.code==='NO_BATCH');
+  coordinator.disconnect('owner');assert.throws(()=>coordinator.status('owner',ids.at(-1)),e=>e.code==='NO_BATCH');
+  const another=coordinator.prepare('other',{actions:actions(),flush:true});await flush();await clock.advance(300001);
+  assert.throws(()=>coordinator.status('other',another.id),e=>e.code==='NO_BATCH');
 });

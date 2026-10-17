@@ -20,10 +20,24 @@ export class DesktopSession {
   #prepared=new Set<string>();
   #target:WindowTarget|undefined;
   #startInfo:HelperStartInfo|undefined;
-  readonly #flowScope=new AsyncLocalStorage<boolean>();
+  readonly #flowScope=new AsyncLocalStorage<Set<string>>();
+  readonly #boundScope=new AsyncLocalStorage<PreparedAction>();
   constructor(client:Client=new CoordinatorClient()){this.#client=client;}
   get startInfo():HelperStartInfo|undefined{return this.#startInfo;}
-  withPreparedFlow<T>(run:()=>Promise<T>):Promise<T>{return this.#flowScope.run(true,run);}
+  bindAction(op:HelperOp,args:Record<string,unknown>,options:HelperCallOptions={}):Promise<PreparedAction>{
+    return this.#ordered(()=>this.#bind(op,args,options));
+  }
+  inspectTarget(target:WindowTarget,options:HelperCallOptions={}):Promise<HelperCallResult>{
+    return this.#ordered(()=>this.#native("resolve_target",{target},options));
+  }
+  withBoundAction<T>(action:PreparedAction,run:()=>Promise<T>):Promise<T>{return this.#boundScope.run(action,run);}
+  withPreparedFlow<T>(run:()=>Promise<T>,options:HelperCallOptions={}):Promise<T>{
+    const batches=new Set<string>();
+    return this.#flowScope.run(batches,async()=>{
+      try{const result=await run();if(options.signal?.aborted)throw new BatchError("CANCELLED","Flow cancelled.");return result;}
+      catch(error){if((error as {code?:string}).code!=="SNOOZED")await this.#cancelBatches(batches);throw error;}
+    });
+  }
   stop():void{this.#client.stop();this.#pending=undefined;this.#batches.clear();this.#prepared.clear();this.#target=undefined;}
   #ordered<T>(run:()=>Promise<T>):Promise<T>{const result=this.#serial.then(run);this.#serial=result.catch(()=>{});return result;}
   call(op:HelperOp,args:Record<string,unknown>={},options:HelperCallOptions={}):Promise<HelperCallResult>{
@@ -39,14 +53,20 @@ export class DesktopSession {
       if(!PREPARED_OPS.has(op))throw new BatchError("BAD_ARGS",`Unsupported prepared operation '${op}'.`);
       const deferred=!!this.#flowScope.getStore();
       if(!deferred)await this.#flush(options);
-      const action=await this.#bind(op,args,options);
+      const bound=this.#boundScope.getStore();
+      const action=bound?.op===op?bound:await this.#bind(op,args,options);
       const answer=await this.#client.request("prepare",{id:this.#pending,actions:[action],flush:!deferred},options);
       const batch=answer.result as BatchStatus;
       this.#pending=batch.state==="prepared"?batch.id:undefined;this.#batches.add(batch.id);this.#target=action.target;
       this.#track(batch);
       if(!deferred){
-        const completed=(await this.#flush(options)).result as {batches:BatchStatus[]};
-        return {result:completed.batches.at(-1)??batch};
+        try{
+          const completed=(await this.#flush(options)).result as {batches:BatchStatus[]};
+          return {result:completed.batches.at(-1)??batch};
+        }catch(error){
+          if(options.signal?.aborted||["CANCELLED","TIMEOUT"].includes((error as {code?:string}).code??""))await this.#cancelBatches([batch.id]);
+          throw error;
+        }
       }
       return answer;
     });
@@ -64,11 +84,24 @@ export class DesktopSession {
   }
   flush(options:HelperCallOptions={}):Promise<HelperCallResult>{return this.#ordered(()=>this.#flush(options));}
   cancelPending():Promise<void>{return this.#ordered(async()=>{
-    for(const id of this.#batches)await this.#client.request("cancel_batch",{id});
-    this.#batches.clear();this.#prepared.clear();this.#pending=undefined;
+    await this.#cancelBatches(this.#flowScope.getStore()??this.#batches);
   });}
+  async #cancelBatches(ids:Iterable<string>):Promise<void>{
+    for(const id of [...ids]){
+      try{
+        const until=Date.now()+12000;
+        let status=(await this.#client.request("cancel_batch",{id},{timeoutMs:2000})).result as BatchStatus;
+        while(!["succeeded","failed","cancelled"].includes(status.state)){
+          if(Date.now()>=until)throw new BatchError("CANCEL_CLEANUP_PENDING","Cancellation was requested but release is not confirmed. Inspect batch progress; do not replay it.");
+          status=(await this.#client.request("wait_batch",{id,afterRevision:status.revision,timeoutMs:10000},{timeoutMs:12000})).result as BatchStatus;
+        }
+      }catch(error){if((error as {code?:string}).code!=="NO_BATCH")throw error;}
+      this.#batches.delete(id);this.#prepared.delete(id);if(this.#pending===id)this.#pending=undefined;
+    }
+  }
   #track(batch:BatchStatus):void{
     this.#batches.add(batch.id);
+    this.#flowScope.getStore()?.add(batch.id);
     if(batch.state==="prepared")this.#prepared.add(batch.id);else this.#prepared.delete(batch.id);
   }
   async #flush(options:HelperCallOptions):Promise<HelperCallResult>{

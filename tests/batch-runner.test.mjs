@@ -82,3 +82,31 @@ test('cancellation cleanup waits for the input worker to exit before returning o
   assert.equal(waiting,true);assert.equal(finished,false);
   release();assert.equal((await result).code,'CANCELLED');
 });
+
+test('internal selector reads preserve observed controls used later in the same batch',async()=>{
+  const {worker}=fake();const original=worker.call;let observedValid=true;
+  worker.call=async(op,args)=>{
+    if(op==='ui_tree'){
+      if(!args.internalQuery)observedValid=false;
+      return {result:{truncated:false,root:{elementId:'live-button',name:'Apply',role:'button',children:[]}}};
+    }
+    if((op==='resolve_element'||op==='set_element_value')&&args.elementId==='observed-field'){
+      if(!observedValid)throw Object.assign(new Error('observation expired'),{code:'STALE_HANDLE'});
+      return {result:{value:'ready'}};
+    }
+    return original(op,args);
+  };
+  await runPreparedBatch(worker,{...batch,actions:[
+    {op:'invoke_element',target,args:{selector:{name:'Apply'}},expect:{elementId:'observed-field',property:'value',equals:'ready'}},
+    {op:'wait_for',target,args:{name:'Apply'}},
+    {op:'set_element_value',target,args:{elementId:'observed-field',value:'next'}}
+  ]},new AbortController().signal,()=>{});
+});
+
+test('a truncated selector tree cannot establish uniqueness or dispatch an invocation',async()=>{
+  const {worker,calls}=fake();const original=worker.call;
+  worker.call=async(op,args)=>op==='ui_tree'?{result:{truncated:true,root:{elementId:'first',name:'Apply',role:'button',children:[]}}}:original(op,args);
+  await assert.rejects(runPreparedBatch(worker,{...batch,actions:[{op:'invoke_element',target,args:{selector:{name:'Apply'}}}]},
+    new AbortController().signal,()=>{}),e=>e.code==='INCOMPLETE_TARGET_QUERY');
+  assert.equal(calls.filter(c=>c.op==='invoke_element').length,0);
+});

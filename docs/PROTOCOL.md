@@ -14,6 +14,10 @@ Requests carry IDs, methods, arguments and absolute deadlines. Responses echo
 the ID with a result or code/message error. Cancellation aborts requests and
 also cancels a batch when cancellation crosses its prepare reply. Disconnect
 cancels owned work and stops that client's workers.
+Synchronous adapter/flow cancellation explicitly cancels its created batches and
+awaits native release. A detached wait request can be aborted without cancelling
+its batch. Terminal action payloads are discarded; status summaries expire after
+five minutes or the 256-summary bound, and on owner disconnect.
 
 Methods are hello, native (read-only allowlist), observe, prepare, batch_status,
 wait_batch, cancel_batch, snooze and settings. Hello carries that owner's helper
@@ -37,7 +41,8 @@ UIA/capture. Peer disconnect can end a worker stuck in provider COM.
 Read operations include ping, list_windows, foreground_window, resolve_target,
 resolve_element, ui_tree, window_capture, screenshot, cursor_position and
 clipboard_get. Ping reports actual integrity/UIAccess, secure-desktop state,
-UAC policy and display bounds/scale.
+UAC policy and display bounds/scale. Bounds are physical pixels; `scale:1`
+means no coordinate conversion is needed, not that Windows UI scaling is 100%.
 
 Input uses begin_control, execute_step and end_control. Begin validates the
 ordinary desktop and takes a session mutex and optional BlockInput on the same
@@ -46,14 +51,20 @@ independent exit watchdog. Steps require a lease ID and bound window/process
 identity. Relative points use current bounds and verify pointer hit ownership.
 Key chords include physical scan codes for Chromium/Electron shortcuts; Unicode
 text uses ordered UTF-16 SendInput chunks.
+Drags submit balanced down/uncoalesced motion/up events in one native transaction;
+they do not keep buttons held across separate calls or sleeps.
 
 UIA mutation runs on the separate observation worker during coordinator-owned
 control. It validates process/window identity and per-window snapshot generation.
-Live selectors/readiness use bounded UIA reads. WGC capture has its own worker.
+Live selectors/readiness use bounded UIA reads with internalQuery:true and their
+own per-window generation. They preserve caller-observed IDs. Depth/node/provider
+omissions set truncated; an incomplete query cannot authorize unique invocation.
+WGC capture has its own worker.
 
 Useful errors include SECURE_DESKTOP, STALE_HANDLE, NO_TARGET, TARGET_OCCLUDED,
 FOCUS_FAILED, CONTROL_BUSY, CONTROL_EXPIRED, INPUT_SUPPRESSION_UNAVAILABLE,
-STATE_TIMEOUT, AMBIGUOUS_TARGET, CANCELLED and HELPER_UNAVAILABLE. Preserve
+STATE_TIMEOUT, AMBIGUOUS_TARGET, INCOMPLETE_TARGET_QUERY, CANCELLED and
+HELPER_UNAVAILABLE. Preserve
 completed progress and observe before preparing remaining actions.
 
 The local transport needs no network. Trusted shell tools and local flows may

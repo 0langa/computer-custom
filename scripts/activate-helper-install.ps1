@@ -1,5 +1,32 @@
 # Copy a complete immutable version, validate it, then atomically activate it.
 
+function Invoke-HelperStartupCheck {
+    param([string] $Checker, [string] $Candidate)
+    $process = [Diagnostics.Process]::new()
+    $process.StartInfo.FileName = (Get-Command node -CommandType Application | Select-Object -First 1).Source
+    $process.StartInfo.Arguments = '"' + $Checker + '" "' + $Candidate + '"'
+    $process.StartInfo.UseShellExecute = $false
+    $process.StartInfo.CreateNoWindow = $true
+    $process.StartInfo.RedirectStandardOutput = $true
+    $process.StartInfo.RedirectStandardError = $true
+    try {
+        if (-not $process.Start()) { throw 'Could not start the protected helper checker' }
+        $stdout = $process.StandardOutput.ReadToEndAsync()
+        $stderr = $process.StandardError.ReadToEndAsync()
+        if (-not $process.WaitForExit(15000)) {
+            $process.Kill()
+            $process.WaitForExit()
+            throw 'Protected helper checker exceeded its 15-second startup deadline'
+        }
+        $output = ($stdout.GetAwaiter().GetResult() + $stderr.GetAwaiter().GetResult()).Trim()
+        if ($process.ExitCode -ne 0) { throw "Protected helper startup/UIAccess verification failed (exit $($process.ExitCode)): $output" }
+        if (-not $output) { throw 'Protected helper checker returned no capability evidence' }
+        $capability = $output | ConvertFrom-Json
+        if (-not $capability.uiAccess -or -not $capability.preparedInput) { throw "Protected helper returned invalid capabilities: $output" }
+        Write-Host $output
+    } finally { $process.Dispose() }
+}
+
 function Assert-HelperInstallUnused {
     param([string] $InstallDir, [string[]] $ExecutablePaths)
     $root = [IO.Path]::GetFullPath($InstallDir).TrimEnd('\') + '\'
@@ -45,9 +72,11 @@ function Install-HelperVersion {
         else { [IO.File]::Move($temporary,$active) }
         return Join-Path $version 'computer-custom-helper.exe'
     } catch {
+        $originalFailure = $_
         # The absolute child path was verified above. Never remove active/older versions.
-        if (Test-Path -LiteralPath $version) { Remove-Item -LiteralPath $version -Recurse -Force }
-        throw
+        try { if (Test-Path -LiteralPath $version) { Remove-Item -LiteralPath $version -Recurse -Force } }
+        catch { Write-Warning "Rejected candidate cleanup is pending at ${version}: $($_.Exception.Message)" }
+        throw $originalFailure
     } finally {
         if (Test-Path -LiteralPath $temporary) { Remove-Item -LiteralPath $temporary -Force }
     }

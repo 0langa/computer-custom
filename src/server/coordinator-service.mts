@@ -21,8 +21,7 @@ export class CoordinatorService {
   readonly #options:Options;
   readonly #workers=new Map<string,DesktopWorkers>();
   readonly #helperOptions=new Map<string,HelperProcessOptions>();
-  readonly #requests=new Map<string,Map<number,string>>();
-  readonly #batchOwners=new Map<string,string>();
+  readonly #requests=new Map<string,Map<number,{batch:string;expires:number}>>();
   #halted=false;
 
   constructor(options:Options){
@@ -39,9 +38,12 @@ export class CoordinatorService {
     this.coordinator.disconnect(owner);this.#workers.get(owner)?.stop();this.#workers.delete(owner);this.#requests.delete(owner);this.#helperOptions.delete(owner);
   }
   cancelRequest(owner:string,id:number):void{
-    const batch=this.#requests.get(owner)?.get(id);if(batch)this.coordinator.cancel(owner,batch);
+    const requests=this.#requests.get(owner),request=requests?.get(id);requests?.delete(id);
+    if(request&&request.expires>Date.now()){
+      try{this.coordinator.cancel(owner,request.batch);}catch(error){if((error as {code?:string}).code!=="NO_BATCH")throw error;}
+    }
   }
-  cancelFromNotice(id:string):void{const owner=this.#batchOwners.get(id);if(owner)this.coordinator.cancel(owner,id);}
+  cancelFromNotice(id:string):void{this.coordinator.cancelFromNotice(id);}
   halt():void{this.#halted=true;for(const owner of this.#workers.keys())this.disconnect(owner);}
   close():void{for(const owner of this.#workers.keys())this.disconnect(owner);this.coordinator.close();}
 
@@ -83,8 +85,10 @@ export class CoordinatorService {
         }
         signal.throwIfAborted();
         const batch=this.coordinator.prepare(owner,{...request,actions:request.actions as PreparedAction[]});
-        this.#batchOwners.set(batch.id,owner);
-        const requests=this.#requests.get(owner)??new Map();requests.set(id,batch.id);this.#requests.set(owner,requests);
+        const requests=this.#requests.get(owner)??new Map();
+        for(const [requestId,entry] of requests)if(entry.expires<=Date.now())requests.delete(requestId);
+        while(requests.size>=256)requests.delete(requests.keys().next().value!);
+        requests.set(id,{batch:batch.id,expires:Date.now()+30000});this.#requests.set(owner,requests);
         // Cancellation can cross the prepare reply; the IPC cancel callback also
         // looks up this mapping after the handler has returned.
         if(signal.aborted)this.coordinator.cancel(owner,batch.id);
@@ -107,5 +111,5 @@ export class CoordinatorService {
   }
 }
 export function publicBatch(batch:Batch):Record<string,unknown>{
-  const {actions,owner,...status}=batch;return {...status,total:actions.length};
+  const {actions,owner,...status}=batch;return status;
 }

@@ -3,15 +3,21 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import {openDesktop} from './interactive-desktop.mjs';
+import {setTimeout as delay} from 'node:timers/promises';
 const normal=process.argv.includes('--normal');
 const desktop=await openDesktop(normal?{elevated:false,helper:path.resolve('helper/ComputerCustom.Helper/bin/Debug/net10.0-windows10.0.19041.0/computer-custom-helper.exe')}:{});
 try{
   const windows=await desktop.call('list_windows');
   const target=windows.find(w=>w.process==='chrome'&&w.x<0&&w.width>900&&w.title.startsWith('Computer Custom browser fixture'));
   assert.ok(target,'Open tests/browser-fixture/index.html in the isolated browser on HUAWEI first');
-  const before=await desktop.call('observe',{target,mode:'tree',depth:25,maxNodes:250});
-  const input=before.elements.find(e=>e.name==='Keyboard input'&&e.role==='edit');
-  const canvas=before.elements.find(e=>e.name==='Drawing surface');assert.ok(input&&canvas);
+  let before,input,canvas;const readyUntil=performance.now()+5000;
+  do{
+    before=await desktop.call('observe',{target,mode:'tree',depth:25,maxNodes:250});
+    input=before.elements.find(e=>e.name==='Keyboard input'&&e.role==='edit');
+    canvas=before.elements.find(e=>e.name==='Drawing surface');
+    if(input&&canvas)break;await delay(25);
+  }while(performance.now()<readyUntil);
+  if(!input||!canvas){fs.writeFileSync('.cache/browser-not-ready.json',JSON.stringify(before,null,2));assert.fail('Owned browser fixture controls did not become ready');}
   const batch=await desktop.run([
     {op:'click',target,args:{x:input.bounds.x+60,y:input.bounds.y+30}},
     {op:'key',target,args:{keys:['ctrl',',']}},

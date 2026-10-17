@@ -19849,8 +19849,11 @@ var BatchCoordinator = class {
   #clock;
   #batches = /* @__PURE__ */ new Map();
   #waiters = /* @__PURE__ */ new Map();
+  #disconnected = /* @__PURE__ */ new Set();
+  #history = /* @__PURE__ */ new Map();
   #queue = [];
   #active;
+  #noticePending;
   #phaseTimer;
   #wakeTimer;
   #controller;
@@ -19866,6 +19869,8 @@ var BatchCoordinator = class {
       this.#resumeAt = resume;
   }
   prepare(owner, request) {
+    this.#prune();
+    this.#disconnected.delete(owner);
     let batch;
     if (request.id) {
       batch = this.#owned(owner, request.id);
@@ -19882,12 +19887,14 @@ var BatchCoordinator = class {
         revision: 0,
         actions: [],
         settings: { ...this.settings, inputMode: request.inputMode ?? this.settings.inputMode },
+        total: 0,
         completed: 0,
         createdAt: this.#iso()
       };
       this.#batches.set(batch.id, batch);
     }
     batch.actions.push(...structuredClone(request.actions));
+    batch.total = batch.actions.length;
     if (request.flush || request.flush !== false && batch.actions.length >= batch.settings.batchThreshold) {
       batch.state = "queued";
       this.#queue.push(batch.id);
@@ -19905,9 +19912,22 @@ var BatchCoordinator = class {
     return this.#snapshot(batch);
   }
   disconnect(owner) {
+    this.#disconnected.add(owner);
     for (const batch of this.#batches.values())
-      if (batch.owner === owner && !terminal.has(batch.state))
-        this.#cancel(batch, new BatchError("CANCELLED", "The owning session disconnected."));
+      if (batch.owner === owner) {
+        if (!terminal.has(batch.state))
+          this.#cancel(batch, new BatchError("CANCELLED", "The owning session disconnected."));
+        if (terminal.has(batch.state)) {
+          this.#batches.delete(batch.id);
+          this.#history.delete(batch.id);
+        }
+      }
+    this.#forgetDisconnected(owner);
+  }
+  cancelFromNotice(id) {
+    const batch = this.#batches.get(id);
+    if (batch)
+      this.#cancel(batch, new BatchError("CANCELLED", "Batch cancelled from its notice."));
   }
   snooze() {
     this.#resumeAt = this.#clock.now() + this.settings.snoozeMs;
@@ -19919,11 +19939,10 @@ var BatchCoordinator = class {
       } else if (["queued", "notifying", "countdown", "snoozed"].includes(batch.state)) {
         if (this.#active === batch.id) {
           this.#clock.clearTimeout(this.#phaseTimer);
-          this.#active = void 0;
           if (!this.#queue.includes(batch.id))
             this.#queue.unshift(batch.id);
-          if (batch.actions.length > 1)
-            void this.#options.hideNotice(this.#snapshot(batch)).catch(() => {
+          if (this.#noticePending !== batch.id)
+            void this.#retireNotice(batch).catch(() => {
             });
         }
         batch.state = "snoozed";
@@ -19971,6 +19990,7 @@ var BatchCoordinator = class {
     });
   }
   #owned(owner, id) {
+    this.#prune();
     const batch = this.#batches.get(id);
     if (!batch || batch.owner !== owner)
       throw new BatchError("NO_BATCH", "Batch not found for this owner.");
@@ -19986,10 +20006,43 @@ var BatchCoordinator = class {
     return new Date(this.#clock.now()).toISOString();
   }
   #touch(batch) {
+    if (terminal.has(batch.state)) {
+      batch.actions = [];
+      this.#history.set(batch.id, this.#clock.now());
+    }
     batch.revision++;
     this.#options.onChange?.(this.#snapshot(batch));
     for (const wake of [...this.#waiters.get(batch.id) ?? []])
       wake();
+    if (terminal.has(batch.state) && this.#disconnected.has(batch.owner)) {
+      this.#batches.delete(batch.id);
+      this.#history.delete(batch.id);
+      this.#forgetDisconnected(batch.owner);
+    }
+    this.#prune();
+  }
+  #forgetDisconnected(owner) {
+    if (![...this.#batches.values()].some((batch) => batch.owner === owner))
+      this.#disconnected.delete(owner);
+  }
+  #prune() {
+    for (const [id, finished] of this.#history) {
+      if (this.#history.size <= 256 && this.#clock.now() - finished <= 3e5)
+        break;
+      this.#history.delete(id);
+      this.#batches.delete(id);
+    }
+  }
+  async #retireNotice(batch) {
+    try {
+      if (batch.total > 1)
+        await this.#options.hideNotice(this.#snapshot(batch));
+    } finally {
+      if (this.#active === batch.id) {
+        this.#active = void 0;
+        this.#schedule();
+      }
+    }
   }
   #schedule() {
     if (this.#scheduled)
@@ -20038,10 +20091,14 @@ var BatchCoordinator = class {
     }
     batch.state = "notifying";
     this.#touch(batch);
+    this.#noticePending = batch.id;
     try {
       await this.#options.showNotice(this.#snapshot(batch));
-      if (this.#active !== batch.id || batch.state !== "notifying")
+      this.#noticePending = void 0;
+      if (this.#active !== batch.id || batch.state !== "notifying") {
+        await this.#retireNotice(batch);
         return;
+      }
       batch.state = "countdown";
       batch.readyAt = new Date(this.#clock.now() + batch.settings.countdownMs).toISOString();
       this.#touch(batch);
@@ -20049,10 +20106,11 @@ var BatchCoordinator = class {
         void this.#execute(batch);
       }, batch.settings.countdownMs);
     } catch (error62) {
+      this.#noticePending = void 0;
       if (this.#active === batch.id) {
-        this.#fail(batch, error62);
-        this.#active = void 0;
-        this.#schedule();
+        if (!terminal.has(batch.state) && !["snoozed"].includes(batch.state))
+          this.#fail(batch, error62);
+        await this.#retireNotice(batch);
       }
     }
   }
@@ -20069,9 +20127,8 @@ var BatchCoordinator = class {
     }
     if (this.#active === batch.id) {
       this.#clock.clearTimeout(this.#phaseTimer);
-      this.#active = void 0;
-      if (batch.actions.length > 1)
-        void this.#options.hideNotice(this.#snapshot(batch)).catch(() => {
+      if (this.#noticePending !== batch.id)
+        void this.#retireNotice(batch).catch(() => {
         });
     }
     this.#queue = this.#queue.filter((id) => id !== batch.id);
@@ -20909,7 +20966,10 @@ async function liveControl(workers, target, selector, signal, until, unique) {
     let root;
     try {
       await workers.call("resolve_target", { target }, { signal, timeoutMs: remaining() });
-      root = (await workers.call("ui_tree", { handle: target.handle, depth: 30, maxNodes: 1e3, interactiveOnly: true }, { signal, timeoutMs: remaining() })).result.root;
+      const tree = (await workers.call("ui_tree", { handle: target.handle, depth: 30, maxNodes: 1e3, interactiveOnly: true, internalQuery: true }, { signal, timeoutMs: remaining() })).result;
+      if (unique && tree.truncated)
+        throw new BatchError("INCOMPLETE_TARGET_QUERY", "The control query was incomplete; uniqueness is unknown. Observe and narrow the target before invoking.");
+      root = tree.root;
     } catch (error62) {
       if (performance.now() >= until)
         throw new BatchError("STATE_TIMEOUT", "Page readiness deadline elapsed; input was not replayed.");
@@ -21124,7 +21184,6 @@ var CoordinatorService = class {
   #workers = /* @__PURE__ */ new Map();
   #helperOptions = /* @__PURE__ */ new Map();
   #requests = /* @__PURE__ */ new Map();
-  #batchOwners = /* @__PURE__ */ new Map();
   #halted = false;
   constructor(options) {
     this.#options = options;
@@ -21147,14 +21206,19 @@ var CoordinatorService = class {
     this.#helperOptions.delete(owner);
   }
   cancelRequest(owner, id) {
-    const batch = this.#requests.get(owner)?.get(id);
-    if (batch)
-      this.coordinator.cancel(owner, batch);
+    const requests = this.#requests.get(owner), request = requests?.get(id);
+    requests?.delete(id);
+    if (request && request.expires > Date.now()) {
+      try {
+        this.coordinator.cancel(owner, request.batch);
+      } catch (error62) {
+        if (error62.code !== "NO_BATCH")
+          throw error62;
+      }
+    }
   }
   cancelFromNotice(id) {
-    const owner = this.#batchOwners.get(id);
-    if (owner)
-      this.coordinator.cancel(owner, id);
+    this.coordinator.cancelFromNotice(id);
   }
   halt() {
     this.#halted = true;
@@ -21209,9 +21273,13 @@ var CoordinatorService = class {
         }
         signal.throwIfAborted();
         const batch = this.coordinator.prepare(owner, { ...request, actions: request.actions });
-        this.#batchOwners.set(batch.id, owner);
         const requests = this.#requests.get(owner) ?? /* @__PURE__ */ new Map();
-        requests.set(id, batch.id);
+        for (const [requestId, entry] of requests)
+          if (entry.expires <= Date.now())
+            requests.delete(requestId);
+        while (requests.size >= 256)
+          requests.delete(requests.keys().next().value);
+        requests.set(id, { batch: batch.id, expires: Date.now() + 3e4 });
         this.#requests.set(owner, requests);
         if (signal.aborted)
           this.coordinator.cancel(owner, batch.id);
@@ -21242,7 +21310,7 @@ var CoordinatorService = class {
 };
 function publicBatch(batch) {
   const { actions, owner, ...status } = batch;
-  return { ...status, total: actions.length };
+  return status;
 }
 
 // build/server/overlay.mjs

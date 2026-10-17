@@ -15,6 +15,9 @@ test('observations of different windows coexist; refreshing one invalidates only
   const read=async(index)=>(await helper.call('ui_tree',{handle:ready.windows[index].handle,depth:3,interactiveOnly:false})).result;
   try {
     const first=await read(0);
+    for(let n=0;n<35;n++)await helper.call('ui_tree',{handle:ready.windows[0].handle,depth:3,interactiveOnly:false,internalQuery:true});
+    assert.equal((await helper.call('resolve_element',{elementId:first.root.elementId})).result.target.handle,ready.windows[0].handle);
+    assert.equal((await helper.call('ui_tree',{handle:ready.windows[1].handle,depth:1,interactiveOnly:false})).result.truncated,true);
     const second=await read(1);
     const resolved=(await helper.call('resolve_element',{elementId:first.root.elementId})).result;
     assert.equal(resolved.target.handle,ready.windows[0].handle);

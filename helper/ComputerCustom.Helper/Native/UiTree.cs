@@ -49,13 +49,15 @@ internal static class UiTree
     /// window's old ids without breaking a prepared sequence spanning windows.
     /// Keep at most 32 window views so long sessions cannot retain them forever.
     /// </summary>
-    private sealed record CachedElement(AutomationElement Element, InputTarget Target);
+    private sealed record CachedElement(AutomationElement Element, InputTarget Target, bool InternalQuery);
     private static readonly Dictionary<string, CachedElement> Cache = [];
     private static readonly LinkedList<long> RecentWindows = [];
     private static string _observationId = string.Empty;
     private static InputTarget _currentTarget = new(0, 0, null);
+    private static bool _internalQuery;
+    private static bool _truncated;
 
-    public static UiTreeResult Read(long windowHandle, int maxDepth, bool interactiveOnly, int maxNodes)
+    public static UiTreeResult Read(long windowHandle, int maxDepth, bool interactiveOnly, int maxNodes, bool internalQuery = false)
     {
         var hwnd = (nint)windowHandle;
         if (!Win32.IsWindow(hwnd))
@@ -77,7 +79,9 @@ internal static class UiTree
                 "That window went away while it was being read.");
         }
 
-        RemoveView(windowHandle);
+        // Internal readiness/selector reads own one separate generation. They
+        // must not expire the caller's observed ids during a prepared batch.
+        RemoveView(windowHandle, internalQuery ? true : null);
         RecentWindows.Remove(windowHandle);
         RecentWindows.AddLast(windowHandle);
         while (RecentWindows.Count > 32)
@@ -89,6 +93,8 @@ internal static class UiTree
         Win32.GetWindowRect(hwnd, out var initialBounds);
         _currentTarget = new InputTarget(windowHandle, (int)pid, WindowInspector.StartTimeOf((int)pid));
         _observationId = Guid.NewGuid().ToString("N");
+        _internalQuery = internalQuery;
+        _truncated = false;
         var budget = Math.Clamp(maxNodes, 1, HardMaxNodes);
         var built = Build(root, Math.Max(1, maxDepth), interactiveOnly, ref budget);
 
@@ -109,13 +115,14 @@ internal static class UiTree
             RemoveView(windowHandle);
             throw new HelperOperationException(ErrorCodes.StaleHandle, "Window moved or resized during its UI observation.");
         }
-        return new UiTreeResult(node, Count(node), budget <= 0, interactiveOnly, _observationId,
+        return new UiTreeResult(node, Count(node), _truncated || budget <= 0, interactiveOnly, _observationId,
             _currentTarget, initialBounds.Left, initialBounds.Top);
     }
 
-    private static void RemoveView(long handle)
+    private static void RemoveView(long handle, bool? internalQuery = null)
     {
-        foreach (var key in Cache.Where(pair => pair.Value.Target.Handle == handle).Select(pair => pair.Key).ToArray())
+        foreach (var key in Cache.Where(pair => pair.Value.Target.Handle == handle
+            && (internalQuery is null || pair.Value.InternalQuery == internalQuery)).Select(pair => pair.Key).ToArray())
             Cache.Remove(key);
     }
 
@@ -161,6 +168,7 @@ internal static class UiTree
     {
         if (budget <= 0)
         {
+            _truncated = true;
             return [];
         }
 
@@ -176,7 +184,7 @@ internal static class UiTree
 
             if (elementId is not null)
             {
-                Cache[elementId] = new CachedElement(element, _currentTarget);
+                Cache[elementId] = new CachedElement(element, _currentTarget, _internalQuery);
             }
 
             node = new UiNode(
@@ -201,6 +209,7 @@ internal static class UiTree
             // promises a value, or throw out of its COM layer. Losing one node
             // is always better than failing the whole read, and the caller
             // still has the screenshot path to fall back on.
+            _truncated = true;
             return [];
         }
 
@@ -215,11 +224,18 @@ internal static class UiTree
                     node.Children.AddRange(Build(child, depthLeft - 1, interactiveOnly, ref budget));
                     child = walker.GetNextSibling(child);
                 }
+                if (child is not null) _truncated = true;
             }
             catch (Exception error) when (error is not HelperOperationException)
             {
                 // Keep whatever children were already collected; see the note above.
+                _truncated = true;
             }
+        }
+        else
+        {
+            try { if (TreeWalker.ControlViewWalker.GetFirstChild(element) is not null) _truncated = true; }
+            catch { _truncated = true; }
         }
 
         if (!interactiveOnly || IsWorthKeeping(node))

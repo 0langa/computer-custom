@@ -19,6 +19,9 @@ for failed sources. Window capture uses WGC and reports image/window offsets.
 window. Native execution checks identity, current bounds, focus and pointer hit
 ownership again after the countdown. UIA IDs include a per-window generation;
 refreshing one window leaves other windows' views intact.
+Internal selector/readiness queries use a separate bounded generation, preserving
+observed IDs within a mixed prepared batch. Live invocation rejects incomplete
+queries as well as duplicate matches; depth/node/provider omissions are reported.
 
 Five actions queue automatically. `flush:true` queues immediately;
 `flush:false` explicitly defers a known script. One flushed action runs without a
@@ -30,6 +33,9 @@ The native input worker takes a per-session mutex and a lease of at most ten
 seconds. `block` suppresses physical input; `ignore` keeps it enabled and ignores
 activity-based quiet waits. Acquisition, input and release run on the same thread.
 Peer/parent death, cancellation and independent watchdogs release control.
+Each drag submits its balanced down/motion/up events in one SendInput transaction,
+with uncoalesced motion. No synthetic button remains held across sleeps. Windows
+can deliver the queued release even after forced worker termination.
 Ctrl+Alt+Del can release Windows input blocking; the overlay hotkey may not arrive
 while blocking is active.
 
@@ -47,11 +53,21 @@ Observations, explicit
 flush, flow sleeps and successful flow completion flush pending work. Known flow
 steps are collected beyond the threshold until such a dependency. Flows are
 trusted local JavaScript, with the same per-tool authorization and audit path.
+Aborting a direct call or flow also cancels the batches that scope created and
+waits for their release. Cancelling an explicit detached status wait only stops
+that wait. Snooze preserves pending work and returns its resume time.
+
+Terminal batches release action payloads immediately. Up to 256 status summaries
+remain for five minutes; disconnected owners' terminal history is removed.
+Expired status IDs return NO_BATCH. Cancellation mappings cover the 30-second
+prepare/reply crossing window and are bounded to 256 recent requests per owner.
 
 ## Authorization, installation and recovery
 
 The host/model owns authorization. Default policy adds no keyword/title or
 confirmation-phrase checks. Explicit restricted policy remains opt-in. Matching
+app rules resolve the actual bound target without changing selection or flushing
+other work; execution uses the same binding. Matching
 admin consent carries existing task authorization. The current helper cannot
 operate the secure input desktop and never changes UAC configuration itself.
 
@@ -75,3 +91,8 @@ START and actual device attempts; a successful SendInput call proves neither
 suppression nor application effects. Evidence stays under .cache/evidence.
 Live Codex and browser tests also measure application readiness separately from
 input execution. Broader compatibility is not implied by a passing fixture.
+The live mixed-DPI run used HUAWEI at 125% (120 DPI) and the primary display at
+100% (96 DPI): 92 actions across two clients retained exact order and Unicode.
+HUAWEI was restored to 100% and independently measured at 96 DPI afterward.
+The status display `scale` describes coordinate conversion (always 1 for physical
+pixels), not the Windows UI scaling preference.

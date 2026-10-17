@@ -13,8 +13,10 @@ async function liveControl(workers:DesktopWorkers,target:WindowTarget,selector:R
     let root:UiNode;
     try{
       await workers.call("resolve_target",{target},{signal,timeoutMs:remaining()});
-      root=((await workers.call("ui_tree",{handle:target.handle,depth:30,maxNodes:1000,interactiveOnly:true},
-        {signal,timeoutMs:remaining()})).result as {root:UiNode}).root;
+      const tree=(await workers.call("ui_tree",{handle:target.handle,depth:30,maxNodes:1000,interactiveOnly:true,internalQuery:true},
+        {signal,timeoutMs:remaining()})).result as {root:UiNode;truncated?:boolean};
+      if(unique&&tree.truncated)throw new BatchError("INCOMPLETE_TARGET_QUERY","The control query was incomplete; uniqueness is unknown. Observe and narrow the target before invoking.");
+      root=tree.root;
     }catch(error){
       if(performance.now()>=until)throw new BatchError("STATE_TIMEOUT","Page readiness deadline elapsed; input was not replayed.");
       throw error;

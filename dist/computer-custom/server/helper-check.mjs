@@ -373,10 +373,10 @@ function installedHelperPath() {
     const active = JSON.parse(fs.readFileSync(pointer, "utf8"));
     if (active.schema !== 1 || !/^versions\/[a-f0-9]{16}-[a-f0-9]{8}$/.test(active.directory ?? ""))
       throw new HelperClientError("HELPER_UNAVAILABLE", "Invalid installed helper version pointer. Reinstall the helper.");
-    const executable2 = path.join(root, active.directory, "computer-custom-helper.exe");
-    if (!fs.existsSync(executable2))
+    const executable = path.join(root, active.directory, "computer-custom-helper.exe");
+    if (!fs.existsSync(executable))
       throw new HelperClientError("HELPER_UNAVAILABLE", "The active installed helper version is incomplete. Reinstall the helper.");
-    return executable2;
+    return executable;
   }
   return path.join(root, "computer-custom-helper.exe");
 }
@@ -409,7 +409,7 @@ var HelperProcess = class {
     if (options.signal?.aborted)
       throw new HelperClientError("CANCELLED", "Operation cancelled");
     const generation = this.#generation;
-    const started2 = performance.now();
+    const started = performance.now();
     let rejectCancelled;
     const cancelled = new Promise((_, reject) => {
       rejectCancelled = reject;
@@ -424,7 +424,7 @@ var HelperProcess = class {
     const timer = options.timeoutMs === void 0 ? void 0 : setTimeout(() => cancel("HELPER_UNAVAILABLE", `Helper did not answer ${op} within ${options.timeoutMs}ms including startup`), options.timeoutMs);
     try {
       const client = await Promise.race([this.#ensureStarted(), cancelled]);
-      const timeoutMs = options.timeoutMs === void 0 ? void 0 : Math.max(1, Math.ceil(options.timeoutMs - (performance.now() - started2)));
+      const timeoutMs = options.timeoutMs === void 0 ? void 0 : Math.max(1, Math.ceil(options.timeoutMs - (performance.now() - started)));
       return await Promise.race([client.call(op, args, { ...options, timeoutMs }), cancelled]);
     } catch (error) {
       if (generation === this.#generation && error instanceof HelperClientError && (error.code === "HELPER_UNAVAILABLE" || error.code === "CANCELLED")) {
@@ -503,10 +503,10 @@ var HelperProcess = class {
         return elevated;
       }
     }
-    const executable2 = this.#options.executablePath ?? resolveHelperPath();
+    const executable = this.#options.executablePath ?? resolveHelperPath();
     if (generation !== this.#generation)
       throw new HelperClientError("CANCELLED", "Helper startup cancelled");
-    const child = spawn(executable2, ["--pipe", pipeName, "--parent", String(process.pid)], {
+    const child = spawn(executable, ["--pipe", pipeName, "--parent", String(process.pid)], {
       stdio: ["pipe", "ignore", "pipe"],
       windowsHide: true
     });
@@ -683,25 +683,43 @@ Set COMPUTER_CUSTOM_HELPER to its path, or build it with: dotnet build helper/Co
 }
 
 // build/server/helper-check.mjs
-var executable = process.argv[2];
-if (!executable)
-  throw new Error("Pass the protected helper executable to verify.");
-var helper = new HelperProcess({ elevated: true, installedExecutablePath: executable });
-var started = performance.now();
-try {
-  let answer;
+import path2 from "node:path";
+import { fileURLToPath as fileURLToPath2 } from "node:url";
+async function checkProtectedHelper(helper) {
+  const started = performance.now();
   try {
-    answer = await helper.call("ping", {}, { timeoutMs: 5e3 });
-  } catch (error) {
-    if (error.code !== "HELPER_UNAVAILABLE")
-      throw error;
+    let answer;
+    try {
+      answer = await helper.call("ping", {}, { timeoutMs: 5e3 });
+    } catch (error) {
+      if (error.code !== "HELPER_UNAVAILABLE")
+        throw error;
+      helper.stop();
+      await helper.waitForStop();
+      answer = await helper.call("ping", {}, { timeoutMs: 5e3 });
+    }
+    const result = answer.result;
+    if (!result.uiAccess || !result.capabilities?.preparedInput)
+      throw new Error("The protected helper did not receive UIAccess/prepared-input capability.");
+    return { uiAccess: true, preparedInput: true, startupMs: performance.now() - started };
+  } finally {
     helper.stop();
-    answer = await helper.call("ping", {}, { timeoutMs: 5e3 });
+    await helper.waitForStop();
   }
-  const result = answer.result;
-  if (!result.uiAccess || !result.capabilities?.preparedInput)
-    throw new Error("The protected helper did not receive UIAccess/prepared-input capability.");
-  process.stdout.write(JSON.stringify({ uiAccess: true, preparedInput: true, startupMs: performance.now() - started }) + "\n");
-} finally {
-  helper.stop();
 }
+if (process.argv[1] && path2.resolve(process.argv[1]) === fileURLToPath2(import.meta.url)) {
+  try {
+    const executable = process.argv[2];
+    if (!executable)
+      throw new Error("Pass the protected helper executable to verify.");
+    const result = await checkProtectedHelper(new HelperProcess({ elevated: true, installedExecutablePath: executable }));
+    process.stdout.write(JSON.stringify(result) + "\n");
+  } catch (error) {
+    const failure = error;
+    process.stderr.write(JSON.stringify({ ok: false, code: failure.code ?? "STARTUP_FAILED", message: failure.message, stack: failure.stack }) + "\n");
+    process.exitCode = 1;
+  }
+}
+export {
+  checkProtectedHelper
+};

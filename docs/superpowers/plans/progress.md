@@ -6,8 +6,11 @@
 - Branch: feat/prepared-desktop; base 003d752.
 - 2026-10-17: confirmed original checkout clean and no previous implementation
   worktree/artifacts. Created managed worktree and installed locked dependencies.
-- User approved complete plan and HUAWEI live testing; both-screen accuracy and
-  real input suppression must be evidenced. Goal is active, not complete.
+- User approved complete plan and HUAWEI live testing, including the temporary
+  125% scaling test. Implementation and acceptance are complete with the explicit
+  limits below. Local plugin 0.3.0 and signed helper 61e5b97a1b1f986e are installed.
+- Final suite: 201/201 passing (161 core, 40 desktop integration), zero skipped
+  or cancelled. Source integration remains the human's choice; no push or merge.
 
 ## Pre-flight interfaces
 
@@ -259,3 +262,174 @@ signed installation is pending — implementation is ready and this review can
 proceed without interrupting the human — cost if wrong: any later acceptance fix
 falls after the pinned review and must receive its own regression verification.
 Goal remains active; no completion claim and no publication/merge authorized.
+
+Final whole-branch review received for003d752..0b1d999. No critical findings.
+Re-grading before one TDD fix pass: Important1–7 all stand: synchronous-call
+cancellation, policy/binding mismatch, selector snapshot invalidation, incomplete
+selector uniqueness, held-input cleanup on forced exit, delayed notice lifetime,
+and unbounded retained payload/history. Finding8 (stale direct-action guidance)
+is Important in this product: agents are explicitly told successful synchronous
+actions are merely queued, defeating the requested execution/observation contract.
+All eight enter one fix pass; no second reviewer will be dispatched.
+
+Final: Ruling: further bundled-speed comparison remains waived; the human again
+accepts roughly one second per action — additional benchmark work would ignore
+explicit steering — cost if wrong: no measured relative-speed guarantee.
+Final: Ruling: latest signed helper and host reload are acceptance gates, not
+source-review claims — reviewer did not run those live — cost if wrong: a source
+pass could be mistaken for delivered behavior, so completion remains pending.
+Final: Ruling: actual mixed-DPI transitions/content reflow remain unmeasured;
+do not change the human's display settings for a benchmark — existing identity,
+geometry and bounds checks remain the contract — cost if wrong: no mixed-DPI
+runtime guarantee and content reflow still requires fresh observation.
+Final: Ruling: secure-desktop screenshot guard is source-tested, not live-proven;
+no secure-desktop input capability is claimed — cost if wrong: its new error
+reporting may still differ on a genuine secure-desktop transition.
+Final: Ruling: uncommitted saved-flow acceptance script is outside the pinned
+review, but its actual thirteen-action/one-batch120ms execution and23ms direct
+click evidence are valid acceptance evidence — cost if wrong: this diagnostic
+script has author verification only.
+
+Human answered Ready now for the install. Real signed f671efadff490e50 installer
+rejected its protected startup/UIAccess check and then hit a transient DLL lock
+during rollback cleanup, masking the original check error. Previous active
+70d106159ba6abce pointer remained intact. A subsequent read-only check of the
+candidate from the ordinary host passed UIAccess/preparedInput in403ms. Do not
+re-prompt before diagnosing and improving startup diagnostics/release cleanup.
+Supported local plugin/read accepts an explicit marketplace JSON path and a
+relative local plugin source, preserving computer-custom@0langas-plugins. This
+provides a supported install route without altering the remote marketplace or
+editing installed cache; installation itself is still pending.
+
+Final fix-pass evidence (before delivery):
+- Findings1/6: real IPC direct-call and flow-abort regressions initially left
+  queued work behind; adapter-owned cancellation RED→GREEN. Notice lifetime and
+  repeated-Snooze regressions initially showed hidden-before-shown stale notices;
+  retaining notice ownership through creation/hide completion is GREEN.
+- Finding2: three actual DesktopSession/tool-policy regressions reproduced wrong
+  foreground authorization/selection; resolve the bound target and execute that
+  same binding, without default-policy overhead or incidental flush, RED→GREEN.
+- Findings3/4: mixed selector/observed-ID batches and truncated unique queries
+  failed RED. Internal snapshot generations preserve observed IDs; incomplete
+  depth/node/provider traversal cannot establish uniqueness. Native35-query
+  retention and external-refresh invalidation pass; focused tests GREEN.
+- Finding5: a REAL killed-worker drag left mouseDowns1/mouseUps0/leftDown=true
+  (RED); diagnostic recovery released that button. Balanced one-transaction drag
+  is GREEN with signed installed61e5b97a1b1f986e: workerGone=true, down1/up1,
+  twelve dragging motions, and actual system button state released.
+- Finding7: terminal payload/bounded-history regression RED→GREEN: action data is
+  cleared immediately, at most256 summaries live for five minutes, and owner
+  disconnect removes its terminal history. Recent preparation/cancel mappings
+  are bounded and expire after30s; the redundant owner map was removed.
+- Finding8: synchronous direct-tool guidance aligned with actual behavior and
+  verified through the real installed MCP instructions plus completed direct
+  calls. No implementation-mirroring copy test added.
+- Extra install defect: original error masked by locked rollback file, reproduced
+  RED→GREEN. Checker awaits native exit before retry/success; explicit captured
+  stdout/stderr/exit diagnostics pass real Windows PowerShell tests, including
+  spaces and multiple Node executables on PATH. Original cold verification
+  cause was not conclusively established; do not claim a guessed cause was fixed.
+- Complete package build and suite201/201 pass (161 core/40 integration), no
+  cancelled/skipped tests; packaged31-tool MCP and public scan pass.
+
+Final: Ruling: eliminate synthetic holds across syscalls by submitting balanced
+drag down/motion/up together, instead of adding a persistent recovery guardian —
+the real forced-kill test proves Windows delivers release independently after
+dispatch — cost if wrong: apps requiring the old96ms drag pacing may need an
+explicit timed-gesture design. Chrome canvas and WinForms motion/release pass.
+Final: Ruling: retain shared notice ownership until pending creation and hide
+settle, including repeated Snooze — no late show can replace the next owner's
+notice — cost if wrong: a slow overlay creation delays the queue until its bounded
+startup deadline, without taking desktop control.
+
+Delivered/lifecycle acceptance:
+- Human approved retry readiness. Main signed61e5b97a1b1f986e installation passed
+  and activated versions/61e5b97a1b1f986e-0cee2d7e. Isolated protected-directory
+  install, upgrade retaining the old version, corrupt-copy rollback, actual
+  uninstall and unique certificate removal all passed. Primary UAC policy was
+  not changed. Evidence .cache/evidence/install-lifecycle.json.
+- Full signed target test passes move-after-prepare, shrink rejection, disabled
+  modal-parent rejection and real occlusion rejection. The fixture's managed
+  TopMost flag initially did not establish a covering window; reasserting it
+  after Show and independently checking WindowFromPoint fixed the diagnostic.
+- Recovery rerun against installed61: exact application counts, block reacquired;
+  cancel30ms/disconnect26ms/coordinator-crash1236ms/1500ms timeout1524ms. The old
+  diagnostic blindly requeued after crash and got five clicks; it now measures
+  the prior effect and never repeats a completed click before proving release.
+- Saved flow: thirteen actions/one batch114ms, one5000ms notice; direct click23ms.
+- Real isolated Chrome chord/canvas on signed61:40ms, expected physical key codes,
+  six actual pointer events with final endpoint/up. Cold Chrome only exposed
+  browser chrome until its owned window was activated; the diagnostic now waits
+  for actual controls. It uses a separate profile with renderer accessibility.
+- Actual Codex live selector navigation plus expectation on an observed settings
+  field succeeds in1660ms for three steps, one5000ms notice. Observed ID survives
+  internal queries; Codex Push confirmed and Back restores the chat. No settings
+  were changed. Evidence .cache/evidence/codex-final-selectors.json.
+- Supported plugin/install with explicit local marketplace JSON installed0.3.0
+  under the SAME computer-custom@0langas-plugins identity. Remote marketplace
+  configuration remains intact. plugin/installed reports localVersion0.3.0.
+  Real MCP launched from the installed cache advertises31 tools/version0.3.0,
+  grants actual UIAccess, matches source/bundled instruction hashes and source61.
+  Existing already-running sessions can retain their prior loaded instructions.
+
+Final: minor (deferred): the first rejected inactive protected candidate
+versions/f671efadff490e50-11322dec remains partly present after the original
+locked rollback; it is not active. Removing that diagnostic remnant alone does
+not justify another UAC prompt; ordinary uninstall removes installation versions.
+Remaining explicit limits: no actual mixed-DPI display transition, and no new
+secure-desktop screenshot-guard runtime check. No secure-desktop input support
+is claimed. Completion audit and local branch preservation remain pending.
+
+Final mixed-DPI acceptance and completion audit, 2026-10-17:
+- Human explicitly authorized changing only HUAWEI to 125% and restoring 100%.
+  The fixture now declares PerMonitorV2, so DeviceDpi measures actual per-display
+  DPI rather than virtualized coordinates. HUAWEI measured120; primary96.
+- Real packaged MCP, signed source61, two owners: 92 actions, exact counts/order,
+  physical clicks, Unicode typing, UIA mutations and focus stress all pass.
+  First90 execute in1246ms; second2 in41ms, serialized, one5000ms notice each.
+  Evidence .cache/evidence/mixed-dpi-batches.json and mixed-dpi-observed.json.
+- Restored HUAWEI via the observed 100% control. Fresh independent fixture reports
+  screen1/dpi96; evidence .cache/evidence/mixed-dpi-restored.json. Returned Settings
+  to the primary display and minimized it; closed the owned loopback bridge.
+- Final npm test201/201 PASS, npm run verify:packaged PASS (31 real MCP tools,
+  default host authorization plus explicit restricted policy), public scan PASS,
+  git diff --check PASS. Original main checkout remains clean.
+- Fresh installed-cache smoke confirms0.3.0,31tools,actual UIAccess, matching
+  server/guidance hashes and helper source61. No further installation is needed
+  for the final test-fixture/documentation changes.
+
+Final: Ruling: the user's explicit 125% authorization supersedes the earlier
+mixed-DPI deferral. Actual mixed-DPI acceptance and restoration are now proven;
+arbitrary future content reflow still requires a fresh observation. The status
+scale1 field means physical-pixel coordinate conversion, not actual UI scaling;
+documentation now makes that distinction explicit — cost if wrong: consumers
+must obtain actual UI DPI separately rather than infer it from this field.
+
+Completion audit against all seven tasks:
+1. Packaging/provenance: reproducible native inputs, source/binary identities,
+   shipped installer inputs, real signed install/upgrade/rollback/uninstall pass.
+2. Native execution: target identity/current bounds/focus/hit checks, independent
+   workers, bounded provider hangs, physical block/ignore and recovery evidenced.
+3. Shared coordinator: persistent settings, FIFO owners, five-second notice,
+   immediate singles, Snooze/cancel/release and bounded history verified.
+4. MCP/flows: packaged31-tool protocol, synchronous direct actions, deferred
+   thirteen-action saved flow, cancellation propagation and readiness verified.
+5. Authorization/guidance: host-owned default, optional restrictions, matching
+   bound-target policy and bundled-first guidance installed. Discovery microtest
+   new guidance5/5 bundled vs baseline4/5 Custom; this is a small sample, not a
+   guarantee about future agent selection or already-loaded sessions.
+6. Acceptance: native two-display/mixed-DPI accuracy, actual physical input,
+   Codex unknown-path/prepared navigation, real browser/canvas, signed elevated
+   runtime and failure/geometry cases pass. Further bundled timing waived.
+7. Independent pinned whole-branch review completed; all eight findings fixed
+   in one pass with behavioral evidence. No second reviewer dispatched. Full
+   current-tree suite and delivery checks pass; no publication is implied.
+
+Remaining limits: secure-desktop input is unsupported, and the new screenshot
+boundary guard has source coverage but no fresh live secure-desktop error-path
+check. UAC policy remains unchanged. The sole deferred minor is the inactive
+partly cleaned rejected install candidate recorded above. Existing sessions can
+retain old plugin instructions; new sessions load the installed0.3.0 guidance.
+No owned fixture, browser-profile or desktop-bridge processes remain. This audit
+closes implementation and verification; source integration awaits the human's
+decision.

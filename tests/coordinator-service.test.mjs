@@ -5,6 +5,7 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { CoordinatorService } from '../build/server/coordinator-service.mjs';
 import { CoordinatorConnection, listenCoordinator } from '../build/server/coordinator-ipc.mjs';
 import { DEFAULT_DESKTOP_SETTINGS } from '../build/server/desktop-settings.mjs';
+import { DesktopSession } from '../build/server/desktop-session.mjs';
 
 const target={handle:101,pid:12,processStartTime:'1'};
 const action={op:'click',target,args:{x:10,y:10}};
@@ -69,4 +70,23 @@ test('each owner retains its own requested helper and elevation mode',async()=>{
     await service.dispatch('a','native',{op:'ping'},signal,3);await service.dispatch('b','native',{op:'ping'},signal,4);
     assert.deepEqual(requested,[{elevated:true,executablePath:'a.exe'},{elevated:false,executablePath:'b.exe'}]);
   }finally{service.close();}
+});
+
+for(const flow of [false,true])test(`aborting ${flow?'a flow completion flush':'a synchronous legacy call'} cancels its batch before another owner releases`,async()=>{
+  let release,waitStarted;const runs=[];
+  const waiting=new Promise(resolve=>waitStarted=resolve);
+  const s=await setup(async(_workers,batch)=>{runs.push(batch.title);if(batch.title==='holder')await new Promise(resolve=>release=resolve);});
+  let preparedId;const controller=new AbortController();
+  const session=new DesktopSession({stop(){s.b.close();},request:async(method,args,options)=>{
+    const reply=s.b.request(method,args,options);if(method==='wait_batch')setImmediate(waitStarted);
+    const response=await reply;if(method==='prepare')preparedId=response.result.id;return response;
+  }});
+  try{
+    await s.a.request('prepare',{actions:[action],title:'holder',flush:true});
+    const execute=async()=>{await session.call('key',{target,keys:['enter']},{signal:controller.signal});if(flow)await session.flush({signal:controller.signal});};
+    const operation=(flow?session.withPreparedFlow(execute,{signal:controller.signal}):execute()).catch(error=>error);
+    await waiting;controller.abort();const error=await operation;assert.equal(error.code,'CANCELLED');
+    assert.equal((await s.b.request('batch_status',{id:preparedId})).result.state,'cancelled');
+    release();await delay(25);assert.deepEqual(runs,['holder']);
+  }finally{release?.();await s.close();}
 });

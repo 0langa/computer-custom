@@ -28,6 +28,8 @@ import type { DesktopSession } from "./desktop-session.mjs";
 import type { HelperCallOptions, HelperCallResult } from "./helper-client.mjs";
 import { prepareSchema, observeSchema } from "./prepared-actions.mjs";
 import { desktopSettingsSchema } from "./desktop-settings.mjs";
+import type {PreparedAction} from "./batch-coordinator.mjs";
+import type {WindowTarget} from "./observe.mjs";
 
 const callOptions=new AsyncLocalStorage<HelperCallOptions>();
 
@@ -76,12 +78,8 @@ function failure(message: string): ToolResult {
 }
 
 /**
- * Tools that deliver input to whatever application currently has focus.
- *
- * These need the foreground window resolved before the policy can judge them:
- * a click is two numbers, so on its own it can never match a rule about
- * installers or security tools. Without this, every click and keystroke
- * classified as "allow" no matter which application received it.
+ * Input policies inspect the application's actual bound target, not whichever
+ * unrelated window currently has focus. Default host authorization needs no read.
  */
 const INPUT_TOOLS = new Set([
   "click",
@@ -96,41 +94,43 @@ const INPUT_TOOLS = new Set([
 ]);
 
 /**
- * Adds the target application to what the policy sees, without sending it to
- * the helper. Best effort: if the foreground cannot be read we classify on the
- * arguments alone rather than failing the call.
+ * Binding and policy inspection do not flush work or change the selected target.
+ * If an explicit app policy cannot resolve its target, report that failure.
  */
 async function withTargetContext(
   context: ToolContext,
   tool: string,
   args: Record<string, unknown>,
-): Promise<Record<string, unknown>> {
+): Promise<{payload:Record<string,unknown>;binding?:PreparedAction}> {
   if (!INPUT_TOOLS.has(tool) || (!context.policy.confirm.appPatterns.length && !context.policy.hardBlock.appPatterns.length)) {
-    return args;
+    return {payload:args};
   }
 
-  try {
-    const answer = await context.helper.call("foreground_window");
+    const binding=!args.target&&context.desktop?.bindAction
+      ?await context.desktop.bindAction(tool as HelperOp,args,callOptions.getStore()):undefined;
+    const target=binding?.target??args.target as WindowTarget|undefined;
+    const answer=target
+      ?context.desktop?.inspectTarget?await context.desktop.inspectTarget(target,callOptions.getStore())
+        :await context.helper.call("resolve_target",{target},callOptions.getStore())
+      :await context.helper.call("foreground_window",{},callOptions.getStore());
     const window = answer.result as
       | { process?: string; title?: string; integrity?: string }
       | null
       | undefined;
 
     if (!window) {
-      return args;
+      throw new Error("The intended application could not be resolved for the explicit app policy.");
     }
 
-    return {
+    return {binding,payload:{
       ...args,
       target: {
+        ...target,
         process: window.process,
         title: window.title,
         integrity: window.integrity,
       },
-    };
-  } catch {
-    return args;
-  }
+    }};
 }
 
 /**
@@ -162,7 +162,7 @@ async function gated(
   context.overlay?.setState(INPUT_TOOLS.has(tool) ? "acting" : "observing");
 
   // Classified with the target application attached; executed without it.
-  const payload = await withTargetContext(context, tool, args);
+  const {payload,binding} = await withTargetContext(context, tool, args);
   const decision = classifyToolCall(tool, payload, context.policy);
 
   if (decision.action === "block") {
@@ -223,7 +223,8 @@ Target: ${target.process} — ${target.title ?? ""}`.trimEnd()
       context.overlay?.setState(INPUT_TOOLS.has(tool) ? "acting" : "observing");
     }
 
-    const result = await run(args);
+    const result = binding&&context.desktop?.withBoundAction
+      ?await context.desktop.withBoundAction(binding,()=>run(args)):await run(args);
 
     // Mark where a click actually landed. The moving cursor shows the journey;
     // this shows the destination, which is what matters afterwards.
@@ -348,7 +349,7 @@ export function registerTools(context: ToolContext): ToolInvoker {
   register("batch_status",{title:"Batch status",description:"Read progress, completed action count, error and resumeAt for your batch.",inputSchema:{id:z.string()},annotations:{readOnlyHint:true}},args=>desktop("batch_status",args));
   register("wait_batch",{title:"Wait for batch progress",description:"Wait for a revision change or completion. A snoozed batch returns resumeAt immediately; do other work or wait until that time instead of polling.",inputSchema:{id:z.string(),afterRevision:z.number().int().optional(),timeoutMs:z.number().int().min(0).max(60000).optional()},annotations:{readOnlyHint:true}},args=>desktop("wait_batch",args,65000));
   register("cancel_batch",{title:"Cancel batch",description:"Cancel your queued or running batch; completed progress remains available.",inputSchema:{id:z.string()},annotations:{readOnlyHint:false}},args=>desktop("cancel_batch",args));
-  register("flush_batch",{title:"Flush legacy actions",description:"Queue and wait for pending legacy click/key/type actions before a dependency or task completion. A snooze returns the batch id and resumeAt in SNOOZED; wait until then without replaying actions.",inputSchema:{},annotations:{readOnlyHint:false}},args=>desktop("flush_batch",args,65000));
+  register("flush_batch",{title:"Flush prepared actions",description:"Queue and wait for explicitly deferred batches or actions collected by a saved flow. Direct click/key/type calls already complete before returning. A snooze returns the batch id and resumeAt in SNOOZED; wait until then without replaying actions.",inputSchema:{},annotations:{readOnlyHint:false}},args=>desktop("flush_batch",args,65000));
   register("desktop_settings",{title:"Desktop settings",description:"Read or update persistent desktop settings shared across Computer Custom sessions. Defaults: five actions, five-second batch notice, five-minute Snooze, ten-second maximum control. Single flushed actions have no notice. block suppresses physical input; ignore leaves it enabled and skips quiet-time waits.",inputSchema:desktopSettingsSchema.partial().shape,annotations:{readOnlyHint:false}},args=>desktop("settings",args));
 
   // ---- look ------------------------------------------------------------
@@ -478,7 +479,7 @@ export function registerTools(context: ToolContext): ToolInvoker {
     "focus_window",
     {
       title: "Focus window",
-      description: "Queue window activation/restoration. Prepared input focuses its target automatically; observation does not require focus. Call flush_batch before relying on the effect.",
+      description: "Activate/restore a window and wait for completion. Prepared input focuses its target automatically; observation does not require focus. Saved flows collect this action until their next dependency flush.",
       inputSchema: { handle: z.number().describe("Window handle from list_windows."), ...confirmArg },
       annotations: { readOnlyHint: false },
     },
@@ -502,7 +503,7 @@ export function registerTools(context: ToolContext): ToolInvoker {
     {
       title: "Click",
       description:
-        "Queue a click at a screen position, bound to the selected window. Use invoke_element for an observed control or prepare_batch for a sequence with window-relative coordinates. Observe after UI changes; flush_batch waits for pending effects.",
+        "Click a screen position, bound to the selected window, and wait for completion. Use invoke_element for an observed control or prepare_batch for a sequence with window-relative coordinates. Saved flows collect known actions until their next dependency flush.",
       inputSchema: {
         x: z.number().int(),
         y: z.number().int(),
@@ -595,7 +596,7 @@ export function registerTools(context: ToolContext): ToolInvoker {
     {
       title: "Invoke element",
       description:
-        "Queue activation of an observed control: press a button, toggle, select or expand. IDs expire when that window is observed again or its process ends. flush_batch waits for pending effects.",
+        "Activate an observed control and wait for completion: press a button, toggle, select or expand. IDs expire when that window is externally observed again or its process ends. Internal selector queries preserve observed IDs. Saved flows collect known actions until their next dependency flush.",
       inputSchema: { elementId: z.string().describe("elementId from ui_tree."), ...confirmArg },
       annotations: { readOnlyHint: false },
     },
@@ -776,7 +777,7 @@ export function registerTools(context: ToolContext): ToolInvoker {
         else await context.desktop?.cancelPending();
         return text(result);
         };
-        return context.desktop?.withPreparedFlow?context.desktop.withPreparedFlow(execute):execute();
+        return context.desktop?.withPreparedFlow?context.desktop.withPreparedFlow(execute,callOptions.getStore()):execute();
       }),
   );
 

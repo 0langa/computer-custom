@@ -88,3 +88,21 @@ test('a direct legacy action completes before returning without requiring a late
   assert.equal(calls.find(c=>c[0]==='prepare')[1].flush,true);
   assert.equal(calls.filter(c=>c[0]==='wait_batch').length,1);
 });
+
+test('a synchronous wait timeout cancels its executable batch while Snooze preserves a deferred flow',async()=>{
+  for(const code of ['TIMEOUT','SNOOZED']){
+    const calls=[];const client={stop(){},request:async(method,args)=>{
+      calls.push(method);
+      if(method==='native')return {result:target};
+      if(method==='prepare')return {result:{id:'batch',state:'queued',revision:1}};
+      if(method==='batch_status')return {result:{id:'batch',state:code==='SNOOZED'?'snoozed':'queued',revision:2,resumeAt:'2099-01-01'}};
+      if(method==='wait_batch')throw Object.assign(new Error('deadline elapsed'),{code});
+      if(method==='cancel_batch')return {result:{id:'batch',state:'cancelled',revision:3}};
+      assert.fail(method);
+    }};
+    const session=new DesktopSession(client);
+    const run=async()=>{await session.call('key',{target,keys:['enter']});if(code==='SNOOZED')await session.flush();};
+    await assert.rejects(code==='SNOOZED'?session.withPreparedFlow(run):run(),e=>e.code===code);
+    assert.equal(calls.includes('cancel_batch'),code==='TIMEOUT');
+  }
+});

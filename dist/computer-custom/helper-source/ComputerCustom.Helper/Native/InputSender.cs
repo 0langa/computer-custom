@@ -143,24 +143,25 @@ internal static class InputSender
     public static void Drag(int fromX, int fromY, int toX, int toY, string button)
     {
         var (down, up) = ButtonFlags(button);
-        _release = [MouseEvent(up)];
-        try
-        {
-            Move(fromX, fromY);
-            Send(MouseEvent(down));
-
-        // Some applications only start a drag after seeing intermediate motion,
-        // so step towards the target rather than jumping straight there.
+        var (startX, startY) = ToAbsolute(fromX, fromY);
+        const uint move = Win32.MOUSEEVENTF_MOVE | Win32.MOUSEEVENTF_ABSOLUTE
+            | Win32.MOUSEEVENTF_VIRTUALDESK | Win32.MOUSEEVENTF_MOVE_NOCOALESCE;
+        var events = new List<Win32.INPUT> { MouseEvent(move, startX, startY), MouseEvent(down) };
+        // Submit a balanced gesture in ONE SendInput transaction. Windows owns
+        // the queued button-up even if this process dies while the app handles
+        // button-down. Never leave a synthetic hold across sleeps/syscalls.
         const int steps = 12;
         for (var step = 1; step <= steps; step++)
         {
-            var x = fromX + (toX - fromX) * step / steps;
-            var y = fromY + (toY - fromY) * step / steps;
-            Move(x, y);
-            Thread.Sleep(8);
+            var (x, y) = ToAbsolute(fromX + (toX - fromX) * step / steps,
+                fromY + (toY - fromY) * step / steps);
+            events.Add(MouseEvent(move, x, y));
         }
-
-            Send(MouseEvent(up));
+        events.Add(MouseEvent(up));
+        _release = [MouseEvent(up)];
+        try
+        {
+            Send(events.ToArray());
             _release = [];
         }
         finally { ReleaseHeld(); }

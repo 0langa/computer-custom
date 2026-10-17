@@ -37852,14 +37852,36 @@ var DesktopSession = class {
   #target;
   #startInfo;
   #flowScope = new AsyncLocalStorage();
+  #boundScope = new AsyncLocalStorage();
   constructor(client = new CoordinatorClient()) {
     this.#client = client;
   }
   get startInfo() {
     return this.#startInfo;
   }
-  withPreparedFlow(run) {
-    return this.#flowScope.run(true, run);
+  bindAction(op, args, options = {}) {
+    return this.#ordered(() => this.#bind(op, args, options));
+  }
+  inspectTarget(target, options = {}) {
+    return this.#ordered(() => this.#native("resolve_target", { target }, options));
+  }
+  withBoundAction(action2, run) {
+    return this.#boundScope.run(action2, run);
+  }
+  withPreparedFlow(run, options = {}) {
+    const batches = /* @__PURE__ */ new Set();
+    return this.#flowScope.run(batches, async () => {
+      try {
+        const result = await run();
+        if (options.signal?.aborted)
+          throw new BatchError("CANCELLED", "Flow cancelled.");
+        return result;
+      } catch (error62) {
+        if (error62.code !== "SNOOZED")
+          await this.#cancelBatches(batches);
+        throw error62;
+      }
+    });
   }
   stop() {
     this.#client.stop();
@@ -37892,7 +37914,8 @@ var DesktopSession = class {
       const deferred = !!this.#flowScope.getStore();
       if (!deferred)
         await this.#flush(options);
-      const action2 = await this.#bind(op, args, options);
+      const bound = this.#boundScope.getStore();
+      const action2 = bound?.op === op ? bound : await this.#bind(op, args, options);
       const answer = await this.#client.request("prepare", { id: this.#pending, actions: [action2], flush: !deferred }, options);
       const batch = answer.result;
       this.#pending = batch.state === "prepared" ? batch.id : void 0;
@@ -37900,8 +37923,14 @@ var DesktopSession = class {
       this.#target = action2.target;
       this.#track(batch);
       if (!deferred) {
-        const completed = (await this.#flush(options)).result;
-        return { result: completed.batches.at(-1) ?? batch };
+        try {
+          const completed = (await this.#flush(options)).result;
+          return { result: completed.batches.at(-1) ?? batch };
+        } catch (error62) {
+          if (options.signal?.aborted || ["CANCELLED", "TIMEOUT"].includes(error62.code ?? ""))
+            await this.#cancelBatches([batch.id]);
+          throw error62;
+        }
       }
       return answer;
     });
@@ -37929,15 +37958,32 @@ var DesktopSession = class {
   }
   cancelPending() {
     return this.#ordered(async () => {
-      for (const id of this.#batches)
-        await this.#client.request("cancel_batch", { id });
-      this.#batches.clear();
-      this.#prepared.clear();
-      this.#pending = void 0;
+      await this.#cancelBatches(this.#flowScope.getStore() ?? this.#batches);
     });
+  }
+  async #cancelBatches(ids) {
+    for (const id of [...ids]) {
+      try {
+        const until = Date.now() + 12e3;
+        let status = (await this.#client.request("cancel_batch", { id }, { timeoutMs: 2e3 })).result;
+        while (!["succeeded", "failed", "cancelled"].includes(status.state)) {
+          if (Date.now() >= until)
+            throw new BatchError("CANCEL_CLEANUP_PENDING", "Cancellation was requested but release is not confirmed. Inspect batch progress; do not replay it.");
+          status = (await this.#client.request("wait_batch", { id, afterRevision: status.revision, timeoutMs: 1e4 }, { timeoutMs: 12e3 })).result;
+        }
+      } catch (error62) {
+        if (error62.code !== "NO_BATCH")
+          throw error62;
+      }
+      this.#batches.delete(id);
+      this.#prepared.delete(id);
+      if (this.#pending === id)
+        this.#pending = void 0;
+    }
   }
   #track(batch) {
     this.#batches.add(batch.id);
+    this.#flowScope.getStore()?.add(batch.id);
     if (batch.state === "prepared")
       this.#prepared.add(batch.id);
     else
@@ -38451,25 +38497,24 @@ var INPUT_TOOLS = /* @__PURE__ */ new Set([
 ]);
 async function withTargetContext(context, tool, args) {
   if (!INPUT_TOOLS.has(tool) || !context.policy.confirm.appPatterns.length && !context.policy.hardBlock.appPatterns.length) {
-    return args;
+    return { payload: args };
   }
-  try {
-    const answer = await context.helper.call("foreground_window");
-    const window = answer.result;
-    if (!window) {
-      return args;
+  const binding = !args.target && context.desktop?.bindAction ? await context.desktop.bindAction(tool, args, callOptions.getStore()) : void 0;
+  const target = binding?.target ?? args.target;
+  const answer = target ? context.desktop?.inspectTarget ? await context.desktop.inspectTarget(target, callOptions.getStore()) : await context.helper.call("resolve_target", { target }, callOptions.getStore()) : await context.helper.call("foreground_window", {}, callOptions.getStore());
+  const window = answer.result;
+  if (!window) {
+    throw new Error("The intended application could not be resolved for the explicit app policy.");
+  }
+  return { binding, payload: {
+    ...args,
+    target: {
+      ...target,
+      process: window.process,
+      title: window.title,
+      integrity: window.integrity
     }
-    return {
-      ...args,
-      target: {
-        process: window.process,
-        title: window.title,
-        integrity: window.integrity
-      }
-    };
-  } catch {
-    return args;
-  }
+  } };
 }
 async function gated(context, tool, rawArgs, summary, run) {
   if (context.session.halted) {
@@ -38478,7 +38523,7 @@ async function gated(context, tool, rawArgs, summary, run) {
   const { confirm: suppliedPhrase, ...args } = rawArgs;
   context.overlay?.start();
   context.overlay?.setState(INPUT_TOOLS.has(tool) ? "acting" : "observing");
-  const payload = await withTargetContext(context, tool, args);
+  const { payload, binding } = await withTargetContext(context, tool, args);
   const decision = classifyToolCall(tool, payload, context.policy);
   if (decision.action === "block") {
     context.audit.append({
@@ -38525,7 +38570,7 @@ Target: ${target.process} \u2014 ${target.title ?? ""}`.trimEnd() : summary,
     if (decision.action === "confirm") {
       context.overlay?.setState(INPUT_TOOLS.has(tool) ? "acting" : "observing");
     }
-    const result = await run(args);
+    const result = binding && context.desktop?.withBoundAction ? await context.desktop.withBoundAction(binding, () => run(args)) : await run(args);
     if ((tool === "click" || tool === "drag") && typeof args.x === "number" && typeof args.y === "number") {
       context.overlay?.ripple(args.x, args.y);
     } else if (tool === "drag" && typeof args.toX === "number" && typeof args.toY === "number") {
@@ -38614,7 +38659,7 @@ function registerTools(context) {
   register("batch_status", { title: "Batch status", description: "Read progress, completed action count, error and resumeAt for your batch.", inputSchema: { id: external_exports.string() }, annotations: { readOnlyHint: true } }, (args) => desktop("batch_status", args));
   register("wait_batch", { title: "Wait for batch progress", description: "Wait for a revision change or completion. A snoozed batch returns resumeAt immediately; do other work or wait until that time instead of polling.", inputSchema: { id: external_exports.string(), afterRevision: external_exports.number().int().optional(), timeoutMs: external_exports.number().int().min(0).max(6e4).optional() }, annotations: { readOnlyHint: true } }, (args) => desktop("wait_batch", args, 65e3));
   register("cancel_batch", { title: "Cancel batch", description: "Cancel your queued or running batch; completed progress remains available.", inputSchema: { id: external_exports.string() }, annotations: { readOnlyHint: false } }, (args) => desktop("cancel_batch", args));
-  register("flush_batch", { title: "Flush legacy actions", description: "Queue and wait for pending legacy click/key/type actions before a dependency or task completion. A snooze returns the batch id and resumeAt in SNOOZED; wait until then without replaying actions.", inputSchema: {}, annotations: { readOnlyHint: false } }, (args) => desktop("flush_batch", args, 65e3));
+  register("flush_batch", { title: "Flush prepared actions", description: "Queue and wait for explicitly deferred batches or actions collected by a saved flow. Direct click/key/type calls already complete before returning. A snooze returns the batch id and resumeAt in SNOOZED; wait until then without replaying actions.", inputSchema: {}, annotations: { readOnlyHint: false } }, (args) => desktop("flush_batch", args, 65e3));
   register("desktop_settings", { title: "Desktop settings", description: "Read or update persistent desktop settings shared across Computer Custom sessions. Defaults: five actions, five-second batch notice, five-minute Snooze, ten-second maximum control. Single flushed actions have no notice. block suppresses physical input; ignore leaves it enabled and skips quiet-time waits.", inputSchema: desktopSettingsSchema.partial().shape, annotations: { readOnlyHint: false } }, (args) => desktop("settings", args));
   register("status", {
     title: "Status",
@@ -38686,7 +38731,7 @@ function registerTools(context) {
   }, async () => gated(context, "clipboard_get", {}, "Read the clipboard.", passthrough("clipboard_get")));
   register("focus_window", {
     title: "Focus window",
-    description: "Queue window activation/restoration. Prepared input focuses its target automatically; observation does not require focus. Call flush_batch before relying on the effect.",
+    description: "Activate/restore a window and wait for completion. Prepared input focuses its target automatically; observation does not require focus. Saved flows collect this action until their next dependency flush.",
     inputSchema: { handle: external_exports.number().describe("Window handle from list_windows."), ...confirmArg },
     annotations: { readOnlyHint: false }
   }, async (args) => gated(context, "focus_window", args, "Bring a window to the front.", passthrough("focus_window")));
@@ -38698,7 +38743,7 @@ function registerTools(context) {
   }, async (args) => gated(context, "move", args, `Move the mouse.`, passthrough("move")));
   register("click", {
     title: "Click",
-    description: "Queue a click at a screen position, bound to the selected window. Use invoke_element for an observed control or prepare_batch for a sequence with window-relative coordinates. Observe after UI changes; flush_batch waits for pending effects.",
+    description: "Click a screen position, bound to the selected window, and wait for completion. Use invoke_element for an observed control or prepare_batch for a sequence with window-relative coordinates. Saved flows collect known actions until their next dependency flush.",
     inputSchema: {
       x: external_exports.number().int(),
       y: external_exports.number().int(),
@@ -38747,7 +38792,7 @@ function registerTools(context) {
   }, async (args) => gated(context, "key", args, `Press ${args.keys.join("+")}.`, passthrough("key")));
   register("invoke_element", {
     title: "Invoke element",
-    description: "Queue activation of an observed control: press a button, toggle, select or expand. IDs expire when that window is observed again or its process ends. flush_batch waits for pending effects.",
+    description: "Activate an observed control and wait for completion: press a button, toggle, select or expand. IDs expire when that window is externally observed again or its process ends. Internal selector queries preserve observed IDs. Saved flows collect known actions until their next dependency flush.",
     inputSchema: { elementId: external_exports.string().describe("elementId from ui_tree."), ...confirmArg },
     annotations: { readOnlyHint: false }
   }, async (args) => gated(context, "invoke_element", args, "Activate a UI element.", passthrough("invoke_element")));
@@ -38847,7 +38892,7 @@ function registerTools(context) {
         await context.desktop?.cancelPending();
       return text(result);
     };
-    return context.desktop?.withPreparedFlow ? context.desktop.withPreparedFlow(execute) : execute();
+    return context.desktop?.withPreparedFlow ? context.desktop.withPreparedFlow(execute, callOptions.getStore()) : execute();
   }));
   register("audit", {
     title: "Show audit trail",
@@ -38866,7 +38911,7 @@ var SERVER_INSTRUCTIONS = `Use Computer Custom when explicitly selected or when 
 
 Read status once, select a target from list_windows, and use observe without focusing. Prepare known actions together with prepare_batch, using observed target identities and window-relative coordinates. Five actions queue automatically; flush:true queues fewer, flush:false defers a known script. Single flushed actions execute immediately. Multiple actions get a five-second notice with Snooze/Cancel and execute automatically for at most ten seconds. Use live invoke_element selectors and wait_for for navigation dependencies. wait_batch returns progress or a shared resumeAt on Snooze. Never replay completed steps. Observe when the UI changes or a dependency needs its result, not between every predetermined step.
 
-Legacy click/key/type/focus tools append to the same queue. They report queued progress, not completed effects. Observations flush pending actions; call flush_batch at task completion. Saved flows flush before observations, sleeps and completion. Input is held only during native execution. block suppresses physical input; ignore leaves user input enabled. Ctrl+Alt+Del releases Windows BlockInput; the overlay hotkey may not be received while blocking.
+Direct click/key/type/focus tools use the shared queue and complete before returning; single actions have no countdown. Saved flows collect actions and flush before observations, sleeps and completion. Explicit deferred batches use flush_batch before relying on their effects. Input is held only during native execution. block suppresses physical input; ignore leaves user input enabled. Ctrl+Alt+Del releases Windows BlockInput; the overlay hotkey may not be received while blocking.
 
 Host/model authorization remains authoritative. Carry already-authorized work through matching admin consent without another plugin confirmation by default. Confirm the prompt corresponds to the intended action. SECURE_DESKTOP means this helper cannot access that desktop: ask the user to answer it. Never change UAC settings automatically. UIAccess/integrity and actual errors determine reachable windows. Explicit local policy overrides can still request confirmation; relay those without inventing phrases. HALTED means the user stopped input: do not retry.`;
 async function main() {
