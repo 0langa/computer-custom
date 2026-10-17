@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<assembly manifestVersion="1.0" xmlns="urn:schemas-microsoft-com:asm.v1">
+  <assemblyIdentity version="1.0.0.0" name="ComputerCustom.Helper" type="win32" />
+
+  <!--
+    Applied only to the installed, signed copy, via `dotnet publish -p:UiAccess=true`.
+
+    uiAccess lets this process bypass User Interface Privilege Isolation and
+    drive application windows running at a HIGHER integrity level than itself:
+    installers, regedit, Task Manager. That is the whole reason it exists.
+
+    Windows grants it only when all three hold:
+      1. the executable is signed by a certificate the local machine trusts,
+      2. it lives in %ProgramFiles% or %WinDir%\System32,
+      3. this manifest says uiAccess="true".
+    Fail any one and Windows starts the process WITHOUT uiAccess rights.
+
+    It does NOT reach system-integrity UI. The UAC consent prompt is system
+    integrity, on the secure desktop, and stays unreachable at any privilege.
+    See docs/REBUILD-DESIGN.md section 6.
+
+    The development build deliberately has no manifest, so an unsigned helper
+    never asks for a right it cannot be granted.
+  -->
+  <trustInfo xmlns="urn:schemas-microsoft-com:asm.v2">
+    <security>
+      <requestedPrivileges xmlns="urn:schemas-microsoft-com:asm.v3">
+        <requestedExecutionLevel level="asInvoker" uiAccess="true" />
+      </requestedPrivileges>
+    </security>
+  </trustInfo>
+
+  <!--
+    DPI awareness is NOT declared here. The WinForms analyzer (WFO0003) rejects
+    manifest DPI settings in this project type, so it is set at startup instead
+    with SetProcessDpiAwarenessContext, before any window is created.
+  -->
+</assembly>

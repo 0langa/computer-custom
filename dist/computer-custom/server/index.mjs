@@ -37681,6 +37681,7 @@ function clamp(value) {
 
 // build/server/flows.mjs
 import fs7 from "node:fs/promises";
+import { randomUUID } from "node:crypto";
 import path7 from "node:path";
 import { pathToFileURL } from "node:url";
 var FLOW_EXTENSIONS = /* @__PURE__ */ new Set([".mjs", ".js"]);
@@ -37743,7 +37744,7 @@ async function runFlow(directory, name, args, invoke) {
   const logs = [];
   const context = buildFlowContext(invoke, args, logs);
   try {
-    const module = await import(`${pathToFileURL(file2).href}?v=${Date.now()}`);
+    const module = await import(`${pathToFileURL(file2).href}?v=${randomUUID()}`);
     if (typeof module.default !== "function") {
       return {
         flow: name,

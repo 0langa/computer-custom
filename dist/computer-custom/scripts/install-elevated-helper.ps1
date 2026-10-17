@@ -67,7 +67,10 @@ $ErrorActionPreference = 'Stop'
 # paths that depend on the script's own location are resolved here instead.
 $scriptRoot = if ($PSScriptRoot) { $PSScriptRoot } else { Split-Path -Parent $MyInvocation.MyCommand.Definition }
 if (-not $ProjectPath) {
-    $ProjectPath = Join-Path $scriptRoot '..\helper\ComputerCustom.Helper'
+    $packagedSource = Join-Path $scriptRoot '..\helper-source\ComputerCustom.Helper'
+    $ProjectPath = if (Test-Path (Join-Path $packagedSource 'ComputerCustom.Helper.csproj')) {
+        $packagedSource
+    } else { Join-Path $scriptRoot '..\helper\ComputerCustom.Helper' }
 }
 $scriptPath = Join-Path $scriptRoot 'install-elevated-helper.ps1'
 
@@ -163,7 +166,9 @@ Write-Head 'Step 1 of 5: build the helper with uiAccess'
 Write-Step "dotnet publish -c Release -p:UiAccess=true -> $staging"
 
 if (-not $DryRun) {
-    & dotnet publish $ProjectPath -c Release -p:UiAccess=true -o $staging --nologo -v q
+    $buildId = (& node (Join-Path $scriptRoot 'helper-build-id.mjs') $ProjectPath | Out-String).Trim()
+    if ($LASTEXITCODE -ne 0 -or -not $buildId) { throw 'Could not identify helper source' }
+    & dotnet publish $ProjectPath -c Release -p:UiAccess=true "-p:SourceRevisionId=$buildId" -o $staging --nologo -v q
     if ($LASTEXITCODE -ne 0) { throw "dotnet publish failed with exit code $LASTEXITCODE" }
 }
 
@@ -224,27 +229,11 @@ Write-Step 'Record which helper source this was built from'
 if (-not $DryRun) {
     if (-not (Test-Path $InstallDir)) { New-Item -ItemType Directory -Path $InstallDir -Force | Out-Null }
 
-    # The server compares this id with the one shipped in the plugin to tell
-    # whether the elevated helper is really behind. Timestamps cannot answer
-    # that: a reinstall moves them without changing any code.
-    # Best effort. Without an id the server simply says nothing, which is the
-    # correct behaviour for a question it cannot answer.
-    $buildId = $null
-    try {
-        $buildIdScript = Join-Path $scriptRoot 'helper-build-id.mjs'
-        if (Test-Path $buildIdScript) {
-            $buildId = (& node $buildIdScript 2>$null | Out-String).Trim()
-        }
-    }
-    catch { $buildId = $null }
-
-    if ($buildId) {
-        Set-Content -Path (Join-Path $staging 'build-id.txt') -Value $buildId -NoNewline -Encoding ascii
-        Write-Step "Build id $buildId"
-    }
-    else {
-        Write-Step 'Could not compute a build id; the update check will stay quiet'
-    }
+    $currentBuildId = (& node (Join-Path $scriptRoot 'helper-build-id.mjs') $ProjectPath | Out-String).Trim()
+    if ($LASTEXITCODE -ne 0 -or $currentBuildId -ne $buildId) { throw 'Helper source changed during publish; rerun the installer.' }
+    & node (Join-Path $scriptRoot 'write-provenance.mjs') $staging $buildId
+    if ($LASTEXITCODE -ne 0) { throw 'Could not record helper provenance' }
+    Write-Step "Build id $buildId"
 
     Copy-Item -Path (Join-Path $staging '*') -Destination $InstallDir -Recurse -Force
     Remove-Item $staging -Recurse -Force

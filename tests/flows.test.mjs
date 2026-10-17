@@ -160,7 +160,8 @@ describe("running a flow", () => {
     }
   });
 
-  it("picks up an edited flow rather than a cached one", async () => {
+  it("picks up an edited flow even when both runs start in the same millisecond", async (t) => {
+    t.mock.method(Date, 'now', () => 1000);
     const directory = makeFlowsDir({ "v.mjs": 'export default async () => "first";\n' });
     const invoker = recordingInvoker().invoke;
 

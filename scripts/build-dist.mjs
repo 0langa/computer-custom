@@ -2,7 +2,6 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import esbuild from "esbuild";
-import { helperBuildId } from "./helper-build-id.mjs";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const distRoot = path.join(repoRoot, "dist", "computer-custom");
@@ -75,12 +74,23 @@ copyFile(
   path.join(repoRoot, "scripts", "helper-build-id.mjs"),
   path.join(distRoot, "scripts", "helper-build-id.mjs"),
 );
+for (const script of ["uac-secure-desktop.ps1", "write-provenance.mjs"]) {
+  copyFile(path.join(repoRoot, "scripts", script), path.join(distRoot, "scripts", script));
+}
+// Elevation is built and signed locally. Ship its build inputs as well as the
+// installer, so installing from a plugin cache needs no source checkout.
+fs.cpSync(path.join(repoRoot, "helper", "ComputerCustom.Helper"),
+  path.join(distRoot, "helper-source", "ComputerCustom.Helper"), {
+    recursive: true,
+    filter: (source) => !["bin", "obj"].includes(path.basename(source)),
+  });
 
 // Which helper source this plugin's binary was built from. The installer writes
 // the same file beside the elevated copy, and the server compares the two to
 // tell whether the elevated helper is really behind.
 fs.mkdirSync(path.join(distRoot, "helper"), { recursive: true });
-fs.writeFileSync(path.join(distRoot, "helper", "build-id.txt"), `${helperBuildId()}\n`, "utf8");
+// Never restamp preserved binaries here. publish-helper.mjs writes their
+// provenance only after a successful native build.
 copyFile(
   path.join(repoRoot, "overlay", "claude", "hooks", "claude-hooks.json"),
   path.join(distRoot, "hooks", "claude-hooks.json"),

@@ -14,6 +14,7 @@
  */
 
 import fs from "node:fs/promises";
+import { randomUUID } from "node:crypto";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import type { ToolInvoker } from "./tools.mjs";
@@ -112,7 +113,7 @@ export async function runFlow(
   try {
     // The query string defeats the module cache, so editing a flow and running
     // it again actually runs the new version.
-    const module = (await import(`${pathToFileURL(file).href}?v=${Date.now()}`)) as {
+    const module = (await import(`${pathToFileURL(file).href}?v=${randomUUID()}`)) as {
       default?: unknown;
     };
 

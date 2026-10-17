@@ -63,5 +63,5 @@ export function helperBuildId(sourceDir = HELPER_SRC) {
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  process.stdout.write(helperBuildId());
+  process.stdout.write(helperBuildId(process.argv[2] ?? HELPER_SRC));
 }
