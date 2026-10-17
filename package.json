@@ -11,7 +11,7 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.json && node scripts/build-dist.mjs",
-    "test": "npm run build && node --test tests/*.test.mjs",
+    "test": "npm run build && dotnet build helper/ComputerCustom.Helper --nologo -v:q && dotnet build tests/desktop-fixture --nologo -v:q && node --test tests/*.test.mjs",
     "sync:upstream": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/sync-upstream.ps1",
     "scan:public": "node scripts/check-public-safety.mjs",
     "publish:helper": "node scripts/publish-helper.mjs",

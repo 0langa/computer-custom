@@ -74,3 +74,20 @@ Task 2 checkpoint (not task complete): full suite 124/124 passed, no skips.
   worker too. Existing input-lease watchdog now uses a disposal-safe deadline.
 - Remaining task 2: combined/targeted observations, WGC window capture, broader
   target-state validation and acceptance cases. Tasks 3–7 still outstanding.
+
+Observation checkpoint after 56c2b71:
+- WGC HWND capture implemented using Windows SDK, without another automation
+  runtime. Pixel test proved it captures the correct fixture while completely
+  occluded: 648ms cold, measured window/image offset 7px on this display.
+- Combined image + UIA observation returned 9 fixture controls in 268ms. Partial
+  results retain the image when UIA fails; targeted results use window-relative
+  bounds. Each combined call shares one 2s deadline including startup.
+- Capture has a separate worker from input and UIA. Window-specific UIA
+  generations retain other windows' views; refresh invalidates only that view.
+  Cached elements validate the owning process lifetime before use.
+- Native SDK target is Windows 10 19041, SDK package pinned 10.0.19041.57.
+  The standard SDK projection adds roughly 25MB to the packaged helper.
+- Native tests now build their fixture and development helper once before the
+  parallel Node suite, avoiding shared-output build races and skipped tests.
+- Task 2 core interfaces ready for coordinator; physical interference and the
+  broader failure matrix remain acceptance work in task 6. No completion claim.

@@ -37412,7 +37412,7 @@ function resolveHelperPath() {
     path4.resolve(here, "..", "..", "helper", "computer-custom-helper.exe"),
     // Development layout, straight out of `dotnet build`.
     path4.resolve(here, "..", "..", "dist", "computer-custom", "helper", "computer-custom-helper.exe"),
-    path4.resolve(here, "..", "..", "helper", "ComputerCustom.Helper", "bin", "Debug", "net10.0-windows", "computer-custom-helper.exe")
+    path4.resolve(here, "..", "..", "helper", "ComputerCustom.Helper", "bin", "Debug", "net10.0-windows10.0.19041.0", "computer-custom-helper.exe")
   ];
   for (const candidate of candidates) {
     if (fs4.existsSync(candidate)) {
@@ -37425,13 +37425,15 @@ Set COMPUTER_CUSTOM_HELPER to its path, or build it with: dotnet build helper/Co
 }
 
 // build/server/desktop-workers.mjs
-var UIA_OPERATIONS = /* @__PURE__ */ new Set(["ui_tree", "invoke_element", "set_element_value"]);
+var UIA_OPERATIONS = /* @__PURE__ */ new Set(["ui_tree", "resolve_element", "invoke_element", "set_element_value"]);
 var DesktopWorkers = class {
   control;
   observation;
+  capture;
   constructor(options = {}) {
     this.control = options.control ?? new HelperProcess();
     this.observation = options.observation ?? new HelperProcess();
+    this.capture = options.capture ?? new HelperProcess();
   }
   get startInfo() {
     return this.control.startInfo;
@@ -37440,11 +37442,15 @@ var DesktopWorkers = class {
     if (UIA_OPERATIONS.has(op)) {
       return this.observation.call(op, args, { ...options, timeoutMs: options.timeoutMs ?? 2e3 });
     }
+    if (op === "window_capture" || op === "screenshot") {
+      return this.capture.call(op, args, { ...options, timeoutMs: options.timeoutMs ?? 2e3 });
+    }
     return this.control.call(op, args, options);
   }
   stop() {
     this.control.stop();
     this.observation.stop();
+    this.capture.stop();
   }
 };
 

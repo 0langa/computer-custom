@@ -8,16 +8,18 @@ export interface NativeWorker {
   readonly startInfo?: HelperStartInfo;
 }
 
-const UIA_OPERATIONS = new Set<HelperOp>(["ui_tree", "invoke_element", "set_element_value"]);
+const UIA_OPERATIONS = new Set<HelperOp>(["ui_tree", "resolve_element", "invoke_element", "set_element_value"]);
 
 /** UIA providers can block COM indefinitely. They never run in the input worker. */
 export class DesktopWorkers implements NativeWorker {
   readonly control: NativeWorker;
   readonly observation: NativeWorker;
+  readonly capture: NativeWorker;
 
-  constructor(options: {control?: NativeWorker; observation?: NativeWorker} = {}) {
+  constructor(options: {control?: NativeWorker; observation?: NativeWorker; capture?: NativeWorker} = {}) {
     this.control = options.control ?? new HelperProcess();
     this.observation = options.observation ?? new HelperProcess();
+    this.capture = options.capture ?? new HelperProcess();
   }
 
   get startInfo(): HelperStartInfo | undefined { return this.control.startInfo; }
@@ -26,11 +28,15 @@ export class DesktopWorkers implements NativeWorker {
     if (UIA_OPERATIONS.has(op)) {
       return this.observation.call(op, args, { ...options, timeoutMs: options.timeoutMs ?? 2000 });
     }
+    if (op === "window_capture" || op === "screenshot") {
+      return this.capture.call(op, args, { ...options, timeoutMs: options.timeoutMs ?? 2000 });
+    }
     return this.control.call(op, args, options);
   }
 
   stop(): void {
     this.control.stop();
     this.observation.stop();
+    this.capture.stop();
   }
 }

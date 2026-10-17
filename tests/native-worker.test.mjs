@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { spawn, execFileSync } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import { once } from 'node:events';
 import { randomUUID } from 'node:crypto';
 import { setTimeout as delay } from 'node:timers/promises';
@@ -8,7 +8,6 @@ import { test } from 'node:test';
 import { HelperClient } from '../build/server/helper-client.mjs';
 
 async function withHungProvider(run) {
-  execFileSync('dotnet', ['build','tests/desktop-fixture','--nologo','-v:q'], {windowsHide:true,stdio:'pipe'});
   const fixture=spawn('./tests/desktop-fixture/bin/Debug/net10.0-windows/computer-custom-fixture.exe',['1','--hang-uia'],
     {windowsHide:true,stdio:['pipe','pipe','pipe']});
   const lines=readline.createInterface({input:fixture.stdout});

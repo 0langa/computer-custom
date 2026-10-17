@@ -32,7 +32,9 @@ export type HelperOp =
   | "end_control"
   | "execute_step"
   | "resolve_target"
+  | "resolve_element"
   | "screenshot"
+  | "window_capture"
   | "list_windows"
   | "foreground_window"
   | "focus_window"
@@ -57,7 +59,9 @@ export type HelperOp =
 export const READ_ONLY_OPS: ReadonlySet<HelperOp> = new Set<HelperOp>([
   "ping",
   "resolve_target",
+  "resolve_element",
   "screenshot",
+  "window_capture",
   "list_windows",
   "foreground_window",
   "ui_tree",
@@ -67,6 +71,7 @@ export const READ_ONLY_OPS: ReadonlySet<HelperOp> = new Set<HelperOp>([
 
 /** Stable error codes. The agent branches on these, not on message text. */
 export type HelperErrorCode =
+  | "CAPTURE_UNAVAILABLE"
   | "CANCELLED"
   | "CONTROL_REQUIRED"
   | "CONTROL_EXPIRED"

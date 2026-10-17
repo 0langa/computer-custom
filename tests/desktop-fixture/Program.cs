@@ -11,15 +11,23 @@ internal static class Program
     [STAThread]
     private static void Main(string[] args)
     {
+        if (args.Length > 0 && args[0] == "--pixel")
+        {
+            using var bitmap = new Bitmap(args[1]);
+            var pixel = bitmap.GetPixel(int.Parse(args[2]), int.Parse(args[3]));
+            Console.WriteLine(JsonSerializer.Serialize(new { r = pixel.R, g = pixel.G, b = pixel.B }));
+            return;
+        }
         ApplicationConfiguration.Initialize();
         var screenIndices = args.Length > 0 ? args[0].Split(',').Select(int.Parse).ToArray()
             : [Array.FindIndex(Screen.AllScreens, s => s.Bounds.Width == 1920)];
         foreach (var index in screenIndices)
         {
             var screen = Screen.AllScreens[Math.Max(0, index)];
-            var window = new FixtureWindow(index, screen, args.Contains("--hang-uia"));
+            var window = new FixtureWindow(index, screen, args.Contains("--hang-uia"), args.Contains("--cover"));
             Windows.Add(window);
             window.Show();
+            if (args.Contains("--hidden")) window.Hide();
         }
         Emit("ready");
         var reader = new Thread(() =>
@@ -61,14 +69,16 @@ internal sealed class FixtureWindow : Form
     private int _bCount;
     private readonly bool _hangUia;
 
-    public FixtureWindow(int screen, Screen display, bool hangUia = false)
+    public FixtureWindow(int screen, Screen display, bool hangUia = false, bool cover = false)
     {
         _hangUia = hangUia;
         _screen = screen;
         Text = $"Computer Custom test — screen {screen}";
         StartPosition = FormStartPosition.Manual;
         Bounds = new Rectangle(display.WorkingArea.X + 100, display.WorkingArea.Y + 100, 420, 280);
-        Controls.AddRange([_a, _b, _text]);
+        BackColor = cover ? Color.FromArgb(19, 71, 181) : Color.FromArgb(203, 52, 117);
+        TopMost = cover;
+        if (!cover) Controls.AddRange([_a, _b, _text]);
         _a.Click += (_, _) => { _aCount++; _events.Add(new { control = "A", tick = Stopwatch.GetTimestamp() }); };
         _b.Click += (_, _) => { _bCount++; _events.Add(new { control = "B", tick = Stopwatch.GetTimestamp() }); };
     }
@@ -97,5 +107,7 @@ internal sealed class FixtureWindow : Form
     public object Snapshot() => new { screen = _screen, handle = Handle.ToInt64(),
         x = Left, y = Top, width = Width, height = Height,
         a = Centre(_a), b = Centre(_b), input = Centre(_text),
+        probe = new { x = PointToScreen(new Point(25, ClientSize.Height - 20)).X - Left,
+                      y = PointToScreen(new Point(25, ClientSize.Height - 20)).Y - Top },
         aCount = _aCount, bCount = _bCount, text = _text.Text, events = _events.ToArray() };
 }

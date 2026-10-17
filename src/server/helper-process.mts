@@ -462,7 +462,7 @@ export function resolveHelperPath(): string {
       "ComputerCustom.Helper",
       "bin",
       "Debug",
-      "net10.0-windows",
+      "net10.0-windows10.0.19041.0",
       "computer-custom-helper.exe",
     ),
   ];

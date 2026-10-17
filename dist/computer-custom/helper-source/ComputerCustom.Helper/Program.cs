@@ -215,7 +215,8 @@ internal static class Program
         // The caller's deadline alone cannot stop a stuck elevated provider.
         // The native worker must terminate itself, releasing BlockInput as well.
         using var deadline = new OperationDeadline(Math.Clamp(request.TimeoutMs
-            ?? (request.Op == "ui_tree" ? 2000 : 30000), 1, 30000));
+            ?? (request.Op is "ui_tree" or "resolve_element" or "invoke_element" or "set_element_value" or "window_capture"
+                ? 2000 : 30000), 1, 30000));
         try
         {
             var outcome = Operations.Execute(request);

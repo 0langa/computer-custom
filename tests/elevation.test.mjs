@@ -6,7 +6,7 @@ import { afterEach, describe, it } from "node:test";
 import { HelperProcess, resolveHelperPath } from "../build/server/helper-process.mjs";
 
 const HELPER = path.resolve(
-  "helper/ComputerCustom.Helper/bin/Debug/net10.0-windows/computer-custom-helper.exe",
+  "helper/ComputerCustom.Helper/bin/Debug/net10.0-windows10.0.19041.0/computer-custom-helper.exe",
 );
 
 const started = [];

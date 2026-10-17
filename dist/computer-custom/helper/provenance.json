@@ -1,11 +1,13 @@
 {
   "schema": 1,
-  "sourceId": "e52b2f8b4e006b5d",
-  "builtAt": "2026-10-17T10:22:08.527Z",
+  "sourceId": "8890f114adb3947d",
+  "builtAt": "2026-10-17T10:34:37.462Z",
   "files": {
-    "computer-custom-helper.dll": "8df71966bef89e3155fa4611d3ad15c69aada9e80a9194d8a13496d4ea37898a",
-    "computer-custom-helper.exe": "04021b95fc44d50c654d759a5c0430ee990835e44d73f73ad9e0b1e69966552a",
-    "computer-custom-overlay.dll": "f851056843aafd70b8f72c7cee3f9bf827bf0a9589db677ab4e459a4fba03051",
-    "computer-custom-overlay.exe": "bca46dd12d25924dbbe7fcf0b7465e2f9aae5dd930447616315fefe999300a3c"
+    "Microsoft.Windows.SDK.NET.dll": "0ec371d93798852e36461c8adddbeadce0f963a04752f0b64e54fe19c1c834a7",
+    "WinRT.Runtime.dll": "bcf3a14e8712a90837fc5c0d8c8a24696af2bd7f74e9767597ec81ededfb23db",
+    "computer-custom-helper.dll": "c551705af16224397ea66b84dd5a0e800b5314ffec95e6d847dca0cc6520923c",
+    "computer-custom-helper.exe": "d7767c02d69837d94d7c48a8b08cbe17baee263bb6924553fe56eadbde9d0387",
+    "computer-custom-overlay.dll": "02cf8bbf1687acefddeb51dea1963842ae2b9eb5b9c847ba5fcb53e9495db0b5",
+    "computer-custom-overlay.exe": "c444cb20af71d10f3d740d72e2721621b0986a89c52d1d71543fc55c460c53e1"
   }
 }

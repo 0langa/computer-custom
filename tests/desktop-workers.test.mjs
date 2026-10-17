@@ -24,9 +24,21 @@ test('accessibility reads and mutations keep their cache in one bounded worker',
   assert.equal(calls.at(-1).options.timeoutMs,500);
 });
 
-test('stopping a desktop session closes both workers',()=>{
+test('stopping a desktop session closes all workers',()=>{
   const stopped=[];
-  const workers=new DesktopWorkers({control:{stop(){stopped.push('control');}},observation:{stop(){stopped.push('observation');}}});
+  const workers=new DesktopWorkers({control:{stop(){stopped.push('control');}},observation:{stop(){stopped.push('observation');}},capture:{stop(){stopped.push('capture');}}});
   workers.stop();
-  assert.deepEqual(stopped,['control','observation']);
+  assert.deepEqual(stopped,['control','observation','capture']);
+});
+
+test('a hung UIA provider cannot queue a window capture behind itself',async()=>{
+  let finish;
+  const observation={call:()=>new Promise(resolve=>finish=resolve),stop(){}};
+  const control={call:async()=>assert.fail('capture must not run in the input worker'),stop(){}};
+  const capture={call:async(op)=>({result:op}),stop(){}};
+  const workers=new DesktopWorkers({observation,control,capture});
+  const pending=workers.call('ui_tree',{handle:42});
+  assert.deepEqual(await workers.call('window_capture',{target:{handle:42}}),{result:'window_capture'});
+  finish({result:{}});
+  await pending;
 });

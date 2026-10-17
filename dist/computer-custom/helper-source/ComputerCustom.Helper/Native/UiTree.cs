@@ -1,4 +1,5 @@
 using System.Windows.Automation;
+using System.Text.Json;
 
 namespace ComputerCustom.Helper.Native;
 
@@ -25,7 +26,8 @@ internal sealed record UiNode(
 /// meant rather than on a guessed pixel. Screenshots stay available for the
 /// cases this cannot see: custom-drawn interfaces, games, and canvases.
 /// </summary>
-internal sealed record UiTreeResult(UiNode Root, int NodeCount, bool Truncated, bool InteractiveOnly, string ObservationId);
+internal sealed record UiTreeResult(UiNode Root, int NodeCount, bool Truncated, bool InteractiveOnly, string ObservationId,
+    InputTarget Target, int WindowX, int WindowY);
 
 internal static class UiTree
 {
@@ -43,12 +45,15 @@ internal static class UiTree
     public const int HardMaxNodes = 4000;
 
     /// <summary>
-    /// Elements from the most recent read, so `invoke_element` can act on an
-    /// id the agent was given. Cleared on each read: acting on an element from
-    /// a stale view is exactly the mistake this design is meant to prevent.
+    /// One current generation per window. Refreshing a view invalidates that
+    /// window's old ids without breaking a prepared sequence spanning windows.
+    /// Keep at most 32 window views so long sessions cannot retain them forever.
     /// </summary>
-    private static readonly Dictionary<string, AutomationElement> Cache = [];
+    private sealed record CachedElement(AutomationElement Element, InputTarget Target);
+    private static readonly Dictionary<string, CachedElement> Cache = [];
+    private static readonly LinkedList<long> RecentWindows = [];
     private static string _observationId = string.Empty;
+    private static InputTarget _currentTarget = new(0, 0, null);
 
     public static UiTreeResult Read(long windowHandle, int maxDepth, bool interactiveOnly, int maxNodes)
     {
@@ -72,7 +77,17 @@ internal static class UiTree
                 "That window went away while it was being read.");
         }
 
-        Cache.Clear();
+        RemoveView(windowHandle);
+        RecentWindows.Remove(windowHandle);
+        RecentWindows.AddLast(windowHandle);
+        while (RecentWindows.Count > 32)
+        {
+            RemoveView(RecentWindows.First!.Value);
+            RecentWindows.RemoveFirst();
+        }
+        Win32.GetWindowThreadProcessId(hwnd, out var pid);
+        Win32.GetWindowRect(hwnd, out var initialBounds);
+        _currentTarget = new InputTarget(windowHandle, (int)pid, WindowInspector.StartTimeOf((int)pid));
         _observationId = Guid.NewGuid().ToString("N");
         var budget = Math.Clamp(maxNodes, 1, HardMaxNodes);
         var built = Build(root, Math.Max(1, maxDepth), interactiveOnly, ref budget);
@@ -87,7 +102,40 @@ internal static class UiTree
                 // single root so the shape stays a tree.
                 : new UiNode(string.Empty, "window", string.Empty, null, null, 0, 0, 0, 0, true, false, false, built);
 
-        return new UiTreeResult(node, Count(node), budget <= 0, interactiveOnly, _observationId);
+        Win32.GetWindowRect(hwnd, out var finalBounds);
+        if (initialBounds.Left != finalBounds.Left || initialBounds.Top != finalBounds.Top
+            || initialBounds.Right != finalBounds.Right || initialBounds.Bottom != finalBounds.Bottom)
+        {
+            RemoveView(windowHandle);
+            throw new HelperOperationException(ErrorCodes.StaleHandle, "Window moved or resized during its UI observation.");
+        }
+        return new UiTreeResult(node, Count(node), budget <= 0, interactiveOnly, _observationId,
+            _currentTarget, initialBounds.Left, initialBounds.Top);
+    }
+
+    private static void RemoveView(long handle)
+    {
+        foreach (var key in Cache.Where(pair => pair.Value.Target.Handle == handle).Select(pair => pair.Key).ToArray())
+            Cache.Remove(key);
+    }
+
+    private static CachedElement ResolveElement(string elementId)
+    {
+        if (!Cache.TryGetValue(elementId, out var cached))
+            throw new HelperOperationException(ErrorCodes.StaleHandle, "That element's observation has expired. Observe its window again.");
+        TargetResolver.Resolve(JsonSerializer.SerializeToElement(new { target = cached.Target }, Protocol.Json));
+        return cached;
+    }
+
+    public static object DescribeElement(string elementId)
+    {
+        var cached = ResolveElement(elementId);
+        var (_, bounds) = TargetResolver.Resolve(JsonSerializer.SerializeToElement(new { target = cached.Target }, Protocol.Json));
+        var info = cached.Element.Current;
+        var rect = info.BoundingRectangle;
+        return new { elementId, target = cached.Target, name = info.Name, role = ShortRole(info.ControlType),
+            x = (int)rect.X - bounds.Left, y = (int)rect.Y - bounds.Top,
+            width = (int)rect.Width, height = (int)rect.Height, enabled = info.IsEnabled, offscreen = info.IsOffscreen };
     }
 
     private static int Count(UiNode node) =>
@@ -125,7 +173,7 @@ internal static class UiTree
 
             if (elementId is not null)
             {
-                Cache[elementId] = element;
+                Cache[elementId] = new CachedElement(element, _currentTarget);
             }
 
             node = new UiNode(
@@ -199,12 +247,7 @@ internal static class UiTree
 
     public static void Invoke(string elementId)
     {
-        if (!Cache.TryGetValue(elementId, out var element))
-        {
-            throw new HelperOperationException(
-                ErrorCodes.StaleHandle,
-                "That element id is not from the current view. Read the UI tree again, then invoke.");
-        }
+        var element = ResolveElement(elementId).Element;
 
         try
         {
@@ -259,12 +302,7 @@ internal static class UiTree
 
     public static void SetValue(string elementId, string value)
     {
-        if (!Cache.TryGetValue(elementId, out var element))
-        {
-            throw new HelperOperationException(
-                ErrorCodes.StaleHandle,
-                "That element id is not from the current view. Read the UI tree again.");
-        }
+        var element = ResolveElement(elementId).Element;
 
         try
         {
