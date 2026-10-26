@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.3.0 — prepared desktop batches
+
+- Prepare actions against observed windows and controls, then run them through
+  one shared queue across Codex and Claude Code. Multiple actions use a visible
+  countdown with Snooze and Cancel, bounded input leases, and automatic release
+  when a client or worker exits.
+- Run input, accessibility queries, and window capture in separate native
+  workers. Combined observations retain partial results, while live selectors
+  and readiness conditions handle changes between dependent actions.
+- Use host authorization by default, with optional local policy restrictions.
+  Prefer bundled Computer for ordinary work and select Computer Custom for
+  prepared batches, UIAccess, or saved flows. Secure-desktop input remains
+  unsupported.
+- Package the helper build inputs and binary provenance, and activate complete
+  signed UIAccess installations atomically. Installing from the marketplace
+  includes everything needed to run the MCP server without an npm install.
+
 ## 0.2.3 — stop telling people to switch on what is already on
 
 - **Fixed instructions that were left behind by the opt-out change.** Elevation
