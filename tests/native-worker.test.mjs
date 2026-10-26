@@ -8,24 +8,26 @@ import { test } from 'node:test';
 import { HelperClient } from '../build/server/helper-client.mjs';
 
 async function withHungProvider(run) {
-  const fixture=spawn('./tests/desktop-fixture/bin/Debug/net10.0-windows/computer-custom-fixture.exe',['1','--hang-uia'],
+  const fixture=spawn('./tests/desktop-fixture/bin/Debug/net10.0-windows/computer-custom-fixture.exe',['0','--hang-uia'],
     {windowsHide:true,stdio:['pipe','pipe','pipe']});
   const lines=readline.createInterface({input:fixture.stdout});
-  const ready=JSON.parse((await once(lines,'line'))[0]);
-  const pipeName=`cc.worker-test.${randomUUID()}`;
-  const token=randomUUID();
-  const native=spawn('./dist/computer-custom/helper/computer-custom-helper.exe',['--pipe',pipeName,'--parent',String(process.pid)],
-    {windowsHide:true,stdio:['pipe','ignore','pipe']});
-  const exited=once(native,'exit');
-  native.stdin.end(`${token}\n`);
-  let client;
+  let native,client;
   try {
+    // Screen 0 also exists on single-display runners. Bound fixture startup so
+    // a failed launch cannot leave the test waiting forever for its first line.
+    const ready=JSON.parse((await once(lines,'line',{signal:AbortSignal.timeout(5000)}))[0]);
+    const pipeName=`cc.worker-test.${randomUUID()}`;
+    const token=randomUUID();
+    native=spawn('./dist/computer-custom/helper/computer-custom-helper.exe',['--pipe',pipeName,'--parent',String(process.pid)],
+      {windowsHide:true,stdio:['pipe','ignore','pipe']});
+    const exited=once(native,'exit');
+    native.stdin.end(`${token}\n`);
     for(let attempt=0;attempt<100;attempt++) {
       client=new HelperClient({pipePath:`\\\\.\\pipe\\${pipeName}`,token});
       try {await client.connect();break;} catch(error) {client.close();if(attempt===99)throw error;await delay(30);}
     }
     await run({client,exited,handle:ready.windows[0].handle,lines});
-  } finally {client?.close();native.kill();fixture.kill();lines.close();}
+  } finally {client?.close();native?.kill();fixture.kill();lines.close();}
 }
 
 test('a hung accessibility provider cannot outlive the native observation deadline', {timeout:15000}, async () => {

@@ -6,14 +6,15 @@ import path from 'node:path';
 import { test } from 'node:test';
 import { HelperProcess } from '../build/server/helper-process.mjs';
 process.env.COMPUTER_CUSTOM_ELEVATED='0';
-test('observations of different windows coexist; refreshing one invalidates only that view',async()=>{
-  const fixture=spawn('./tests/desktop-fixture/bin/Debug/net10.0-windows/computer-custom-fixture.exe',['1,1','--hidden'],
+test('observations of different windows coexist; refreshing one invalidates only that view',{timeout:30000},async()=>{
+  const fixture=spawn('./tests/desktop-fixture/bin/Debug/net10.0-windows/computer-custom-fixture.exe',['0,0','--hidden'],
     {windowsHide:true,stdio:['pipe','pipe','pipe']});
   const lines=readline.createInterface({input:fixture.stdout});
-  const ready=JSON.parse((await once(lines,'line'))[0]);
   const helper=new HelperProcess({executablePath:path.resolve('dist/computer-custom/helper/computer-custom-helper.exe')});
-  const read=async(index)=>(await helper.call('ui_tree',{handle:ready.windows[index].handle,depth:3,interactiveOnly:false})).result;
   try {
+    // Two windows are required; a second physical display is not.
+    const ready=JSON.parse((await once(lines,'line',{signal:AbortSignal.timeout(5000)}))[0]);
+    const read=async(index)=>(await helper.call('ui_tree',{handle:ready.windows[index].handle,depth:3,interactiveOnly:false})).result;
     const first=await read(0);
     for(let n=0;n<35;n++)await helper.call('ui_tree',{handle:ready.windows[0].handle,depth:3,interactiveOnly:false,internalQuery:true});
     assert.equal((await helper.call('resolve_element',{elementId:first.root.elementId})).result.target.handle,ready.windows[0].handle);
