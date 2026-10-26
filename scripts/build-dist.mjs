@@ -100,7 +100,7 @@ copyFile(
 for (const flow of ["README.md", "window-report.mjs"]) {
   copyFile(path.join(repoRoot, "flows", flow), path.join(distRoot, "flows", flow));
 }
-for (const asset of ["icon.png", "logo.png", "screenshot-1.png"]) {
+for (const asset of ["icon.png", "logo.png", "logo.svg", "screenshot-1.png"]) {
   copyFile(
     path.join(repoRoot, "overlay", "assets", asset),
     path.join(distRoot, "assets", asset),
@@ -139,7 +139,7 @@ writeJson(path.join(distRoot, ".codex-plugin", "plugin.json"), {
       "Run my saved Computer Custom flow",
       "Check Computer Custom UIAccess status",
     ],
-    brandColor: "#0F766E",
+    brandColor: "#E0457B",
     composerIcon: "./assets/icon.png",
     logo: "./assets/logo.png",
     screenshots: ["./assets/screenshot-1.png"],

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.1 - 2026-10-26
+
+- Replace the plugin icon and logo with the approved Folded Crest artwork and include its SVG source.
+- Match the plugin theme color to the new pink mark and include the artwork in generated packages.
+
+
 ## 0.3.0 — prepared desktop batches
 
 - Prepare actions against observed windows and controls, then run them through

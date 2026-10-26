@@ -38919,7 +38919,7 @@ async function main() {
   const audit = new AuditLog(config2.policy, config2.auditPath);
   const helper = new DesktopSession();
   const session = { halted: false };
-  const mcp = new McpServer({ name: "computer-custom", version: "0.3.0" }, { capabilities: { tools: {} }, instructions: SERVER_INSTRUCTIONS });
+  const mcp = new McpServer({ name: "computer-custom", version: "0.3.1" }, { capabilities: { tools: {} }, instructions: SERVER_INSTRUCTIONS });
   registerTools({ mcp, helper, desktop: helper, policy: config2.policy, audit, session });
   const shutdown = () => {
     helper.stop();

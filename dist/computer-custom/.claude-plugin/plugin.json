@@ -1,6 +1,6 @@
 {
   "name": "computer-custom",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Explicit Windows automation with prepared batches, shared Snooze and a signed UIAccess helper.",
   "author": {
     "name": "0langa",

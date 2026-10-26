@@ -31,7 +31,7 @@ async function main(): Promise<void> {
   const session: SessionState = { halted: false };
 
   const mcp = new McpServer(
-    { name: "computer-custom", version: "0.3.0" },
+    { name: "computer-custom", version: "0.3.1" },
     { capabilities: { tools: {} }, instructions: SERVER_INSTRUCTIONS },
   );
 
