@@ -23,7 +23,6 @@ import {
   writeTextFile,
 } from "./system.mjs";
 import { listFlows, resolveFlowsDirectory, runFlow } from "./flows.mjs";
-import type { Overlay } from "./overlay.mjs";
 import type { DesktopSession } from "./desktop-session.mjs";
 import type { HelperCallOptions, HelperCallResult } from "./helper-client.mjs";
 import { prepareSchema, observeSchema } from "./prepared-actions.mjs";
@@ -33,20 +32,12 @@ import type {WindowTarget} from "./observe.mjs";
 
 const callOptions=new AsyncLocalStorage<HelperCallOptions>();
 
-/**
- * Set when the user presses the panic hotkey. Every tool call checks it, so a
- * stop is immediate rather than "after the current plan finishes".
- */
-export type SessionState = { halted: boolean; reason?: string };
-
 export type ToolContext = {
   helper: NativeWorker;
   policy: PolicyConfig;
   audit: AuditLog;
   mcp: McpServer;
-  overlay?: Overlay;
   desktop?: DesktopSession;
-  session: SessionState;
 };
 
 type ToolResult = {
@@ -146,20 +137,9 @@ async function gated(
   summary: string,
   run: (args: Record<string, unknown>) => Promise<ToolResult>,
 ): Promise<ToolResult> {
-  if (context.session.halted) {
-    return failure(
-      `${context.session.reason ?? "The user stopped this session."} ` +
-        "Do not retry. Tell the user the session was halted and wait for them.",
-    );
-  }
-
   // The confirmation phrase is not part of the action, and letting it reach the
   // classifier would mean its own text could match a policy pattern.
   const { confirm: suppliedPhrase, ...args } = rawArgs as { confirm?: string } & Record<string, unknown>;
-
-  // Show what is happening before it happens, not after.
-  context.overlay?.start();
-  context.overlay?.setState(INPUT_TOOLS.has(tool) ? "acting" : "observing");
 
   // Classified with the target application attached; executed without it.
   const {payload,binding} = await withTargetContext(context, tool, args);
@@ -181,8 +161,6 @@ async function gated(
 
   if (decision.action === "confirm") {
     const target = payload.target as { process?: string; title?: string } | undefined;
-    // Red while a human is being asked: the machine is stopped and waiting.
-    context.overlay?.setState("waiting");
     const outcome = await requestConfirmation(context.mcp.server, {
       tool,
       reason: decision.reason,
@@ -199,7 +177,6 @@ Target: ${target.process} — ${target.title ?? ""}`.trimEnd()
     });
 
     if (!outcome.approved) {
-      context.overlay?.setState("idle");
       context.audit.append({
         tool,
         decision: "denied",
@@ -219,20 +196,8 @@ Target: ${target.process} — ${target.title ?? ""}`.trimEnd()
   }
 
   try {
-    if (decision.action === "confirm") {
-      context.overlay?.setState(INPUT_TOOLS.has(tool) ? "acting" : "observing");
-    }
-
     const result = binding&&context.desktop?.withBoundAction
       ?await context.desktop.withBoundAction(binding,()=>run(args)):await run(args);
-
-    // Mark where a click actually landed. The moving cursor shows the journey;
-    // this shows the destination, which is what matters afterwards.
-    if ((tool === "click" || tool === "drag") && typeof args.x === "number" && typeof args.y === "number") {
-      context.overlay?.ripple(args.x, args.y);
-    } else if (tool === "drag" && typeof args.toX === "number" && typeof args.toY === "number") {
-      context.overlay?.ripple(args.toX, args.toY);
-    }
 
     if (decision.action === "allow") {
       context.audit.append({ tool, decision: "allow", reason: decision.reason, args: payload, ok: true });
@@ -251,8 +216,6 @@ Target: ${target.process} — ${target.title ?? ""}`.trimEnd()
     });
 
     return failure(message);
-  } finally {
-    context.overlay?.setState("idle");
   }
 }
 

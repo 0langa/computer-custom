@@ -38517,12 +38517,7 @@ async function withTargetContext(context, tool, args) {
   } };
 }
 async function gated(context, tool, rawArgs, summary, run) {
-  if (context.session.halted) {
-    return failure2(`${context.session.reason ?? "The user stopped this session."} Do not retry. Tell the user the session was halted and wait for them.`);
-  }
   const { confirm: suppliedPhrase, ...args } = rawArgs;
-  context.overlay?.start();
-  context.overlay?.setState(INPUT_TOOLS.has(tool) ? "acting" : "observing");
   const { payload, binding } = await withTargetContext(context, tool, args);
   const decision = classifyToolCall(tool, payload, context.policy);
   if (decision.action === "block") {
@@ -38536,7 +38531,6 @@ async function gated(context, tool, rawArgs, summary, run) {
   }
   if (decision.action === "confirm") {
     const target = payload.target;
-    context.overlay?.setState("waiting");
     const outcome = await requestConfirmation(context.mcp.server, {
       tool,
       reason: decision.reason,
@@ -38550,7 +38544,6 @@ Target: ${target.process} \u2014 ${target.title ?? ""}`.trimEnd() : summary,
       suppliedPhrase
     });
     if (!outcome.approved) {
-      context.overlay?.setState("idle");
       context.audit.append({
         tool,
         decision: "denied",
@@ -38567,15 +38560,7 @@ Target: ${target.process} \u2014 ${target.title ?? ""}`.trimEnd() : summary,
     });
   }
   try {
-    if (decision.action === "confirm") {
-      context.overlay?.setState(INPUT_TOOLS.has(tool) ? "acting" : "observing");
-    }
     const result = binding && context.desktop?.withBoundAction ? await context.desktop.withBoundAction(binding, () => run(args)) : await run(args);
-    if ((tool === "click" || tool === "drag") && typeof args.x === "number" && typeof args.y === "number") {
-      context.overlay?.ripple(args.x, args.y);
-    } else if (tool === "drag" && typeof args.toX === "number" && typeof args.toY === "number") {
-      context.overlay?.ripple(args.toX, args.toY);
-    }
     if (decision.action === "allow") {
       context.audit.append({ tool, decision: "allow", reason: decision.reason, args: payload, ok: true });
     }
@@ -38591,8 +38576,6 @@ Target: ${target.process} \u2014 ${target.title ?? ""}`.trimEnd() : summary,
       error: message
     });
     return failure2(message);
-  } finally {
-    context.overlay?.setState("idle");
   }
 }
 function describeError(error62) {
@@ -38918,9 +38901,8 @@ async function main() {
   const config2 = loadServerConfig();
   const audit = new AuditLog(config2.policy, config2.auditPath);
   const helper = new DesktopSession();
-  const session = { halted: false };
   const mcp = new McpServer({ name: "computer-custom", version: "0.3.1" }, { capabilities: { tools: {} }, instructions: SERVER_INSTRUCTIONS });
-  registerTools({ mcp, helper, desktop: helper, policy: config2.policy, audit, session });
+  registerTools({ mcp, helper, desktop: helper, policy: config2.policy, audit });
   const shutdown = () => {
     helper.stop();
     process.exit(0);
