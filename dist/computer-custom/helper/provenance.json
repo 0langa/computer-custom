@@ -1,12 +1,12 @@
 {
   "schema": 1,
-  "sourceId": "61e5b97a1b1f986e",
+  "sourceId": "ad8653453d4c5b58",
   "overlaySourceId": "68b74533f46df39a",
-  "builtAt": "2026-10-26T20:10:36.271Z",
+  "builtAt": "2026-10-31T03:40:33.869Z",
   "files": {
     "Microsoft.Windows.SDK.NET.dll": "0ec371d93798852e36461c8adddbeadce0f963a04752f0b64e54fe19c1c834a7",
     "WinRT.Runtime.dll": "bcf3a14e8712a90837fc5c0d8c8a24696af2bd7f74e9767597ec81ededfb23db",
-    "computer-custom-helper.dll": "39647e4ae9ae1b4348a733b72fc7dd2f1e5f2f318ea6dfcb7cfac022922f5444",
+    "computer-custom-helper.dll": "bb6035f62290aa5bbb0374a363648f9f6b6d74b711ae7b6dc220a4ababc7afca",
     "computer-custom-helper.exe": "afdcf8af042d0f5d4467a8506c60bf46876617668ccc14cf7dc01f073b697e8c",
     "computer-custom-overlay.dll": "c6d88c40ec08f8dfb41acc70db4e116c79eafa961311441dc6bcb7c6e9420e64",
     "computer-custom-overlay.exe": "128b85d3faef1c563a7ca6c35252c24735d517e5c34e020d4077a9e3641e949a"

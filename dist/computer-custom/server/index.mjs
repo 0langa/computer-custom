@@ -38603,7 +38603,7 @@ function describeError(error62) {
     case "SECURE_DESKTOP":
       return `${error62.message} Do not retry until the user confirms the prompt is gone.`;
     case "UIPI_BLOCKED":
-      return `${error62.message} This helper runs at normal privilege and cannot drive elevated windows. Tell the user an elevated helper is needed.`;
+      return error62.message.includes("higher integrity level than this helper") ? error62.message : `${error62.message} The target window runs at a higher integrity level than this helper.`;
     case "STALE_HANDLE":
       return `${error62.message}`;
     case "NO_TARGET":
@@ -38660,7 +38660,7 @@ function registerTools(context) {
   register("wait_batch", { title: "Wait for batch progress", description: "Wait for a revision change or completion. A snoozed batch returns resumeAt immediately; do other work or wait until that time instead of polling.", inputSchema: { id: external_exports.string(), afterRevision: external_exports.number().int().optional(), timeoutMs: external_exports.number().int().min(0).max(6e4).optional() }, annotations: { readOnlyHint: true } }, (args) => desktop("wait_batch", args, 65e3));
   register("cancel_batch", { title: "Cancel batch", description: "Cancel your queued or running batch; completed progress remains available.", inputSchema: { id: external_exports.string() }, annotations: { readOnlyHint: false } }, (args) => desktop("cancel_batch", args));
   register("flush_batch", { title: "Flush prepared actions", description: "Queue and wait for explicitly deferred batches or actions collected by a saved flow. Direct click/key/type calls already complete before returning. A snooze returns the batch id and resumeAt in SNOOZED; wait until then without replaying actions.", inputSchema: {}, annotations: { readOnlyHint: false } }, (args) => desktop("flush_batch", args, 65e3));
-  register("desktop_settings", { title: "Desktop settings", description: "Read or update persistent desktop settings shared across Computer Custom sessions. Defaults: five actions, five-second batch notice, five-minute Snooze, ten-second maximum control. Single flushed actions have no notice. block suppresses physical input; ignore leaves it enabled and skips quiet-time waits.", inputSchema: desktopSettingsSchema.partial().shape, annotations: { readOnlyHint: false } }, (args) => desktop("settings", args));
+  register("desktop_settings", { title: "Desktop settings", description: "Read or update persistent desktop settings shared across Computer Custom sessions. Defaults: five actions, five-second batch notice, five-minute Snooze, ten-second maximum control. Single flushed actions have no notice. block suppresses physical input; ignore leaves it enabled.", inputSchema: desktopSettingsSchema.partial().shape, annotations: { readOnlyHint: false } }, (args) => desktop("settings", args));
   register("status", {
     title: "Status",
     description: "Read actual helper privilege/UIAccess, displays, desktop availability, launch provenance and UAC settings. Read once and after UIPI_BLOCKED; report start.notice when present. This helper cannot operate the secure desktop. No UAC settings are changed.",
@@ -38851,7 +38851,7 @@ function registerTools(context) {
   }, async (args) => gated(context, "fs_write", args, `${args.append === true ? "Append to" : "Overwrite"} ${String(args.path)}.`, async (inner) => text(await writeTextFile(String(inner.path), String(inner.content), inner.append === true))));
   register("fs_delete", {
     title: "Delete a path",
-    description: "Delete a file, or a directory with recursive set. This cannot be undone, so it always asks first, whatever the path.",
+    description: "Delete a file, or a directory with recursive set. This cannot be undone. Default policy allows it; an explicit policy can still require confirmation.",
     inputSchema: {
       path: external_exports.string(),
       recursive: external_exports.boolean().optional().describe("Required to remove a directory that is not empty."),
