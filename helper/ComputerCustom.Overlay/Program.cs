@@ -12,7 +12,6 @@ namespace ComputerCustom.Overlay;
 /// is the right one.
 ///
 ///   in : {"state":"idle|observing|acting|waiting"}
-///        {"ripple":{"x":840,"y":512}}
 ///        {"quit":true}
 ///   out: {"event":"panic"}      the user pressed the stop hotkey
 ///        {"event":"ready"}      windows are up
@@ -23,7 +22,6 @@ internal static class Program
 
     private static readonly List<BorderWindow> Borders = [];
     private static HotkeySink? _sink;
-    private static RippleLayer? _ripples;
     private static NoticeWindow? _notice;
 
     [STAThread]
@@ -37,12 +35,6 @@ internal static class Program
             Borders.Add(border);
             border.Show();
         }
-
-        // One persistent layer for every click marker. Creating a window per
-        // click made both the markers and the border flash, because each new
-        // topmost window disturbed the z-order the border had settled into.
-        _ripples = new RippleLayer(SystemInformation.VirtualScreen);
-        _ripples.Show();
 
         _sink = new HotkeySink();
         _sink.CreateControl();
@@ -105,13 +97,6 @@ internal static class Program
                         Emit(new{@event="notice-hidden",requestId,batchId,visible=false});
                     });
                 }
-
-                if (root.TryGetProperty("ripple", out var ripple)
-                    && ripple.TryGetProperty("x", out var x)
-                    && ripple.TryGetProperty("y", out var y))
-                {
-                    ShowRipple(x.GetInt32(), y.GetInt32());
-                }
             }
             catch (JsonException)
             {
@@ -131,11 +116,6 @@ internal static class Program
                 border.Apply(state);
             }
         });
-    }
-
-    private static void ShowRipple(int x, int y)
-    {
-        Invoke(() => _ripples?.Add(x, y));
     }
 
     /// <summary>Marshals onto the UI thread, which owns every window here.</summary>

@@ -21396,10 +21396,6 @@ var Overlay = class {
     this.#state = state;
     this.#send({ state });
   }
-  /** Marks where a click landed, so a fast sequence can be followed. */
-  ripple(x, y) {
-    this.#send({ ripple: { x, y } });
-  }
   stop() {
     this.#send({ quit: true });
     try {

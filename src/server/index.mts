@@ -14,7 +14,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { AuditLog } from "./audit.mjs";
 import { loadServerConfig } from "./config.mjs";
 import { DesktopSession } from "./desktop-session.mjs";
-import { type SessionState, registerTools } from "./tools.mjs";
+import { registerTools } from "./tools.mjs";
 
 const SERVER_INSTRUCTIONS = `Use Computer Custom when explicitly selected or when its prepared desktop batches, signed UIAccess helper, or saved local flows are needed. Prefer bundled Computer for ordinary computer tasks when it is available. This plugin does not wrap or replace bundled Computer.
 
@@ -28,14 +28,13 @@ async function main(): Promise<void> {
   const config = loadServerConfig();
   const audit = new AuditLog(config.policy, config.auditPath);
   const helper = new DesktopSession();
-  const session: SessionState = { halted: false };
 
   const mcp = new McpServer(
     { name: "computer-custom", version: "0.3.1" },
     { capabilities: { tools: {} }, instructions: SERVER_INSTRUCTIONS },
   );
 
-  registerTools({ mcp, helper, desktop:helper,policy: config.policy, audit, session });
+  registerTools({ mcp, helper, desktop:helper,policy: config.policy, audit });
 
   const shutdown = () => {
     helper.stop();
