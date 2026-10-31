@@ -54,16 +54,6 @@ export type PolicyConfig = {
   };
 };
 
-export type AuditEntry = {
-  at: string;
-  method: string;
-  decision: PolicyDecision["action"];
-  reason: string;
-  args: unknown;
-  ok?: boolean;
-  error?: string;
-};
-
 export type PolicyEnvironment = {
   home?: string;
   programFiles?: string;
@@ -73,11 +63,6 @@ export type PolicyEnvironment = {
 };
 
 const READ_ONLY_METHODS = new Set([
-  // legacy sky method names
-  "documentation",
-  "get_window",
-  "get_window_state",
-  "list_apps",
   "list_windows",
   "screenshot",
   // self-contained MCP tool names (see docs/PROTOCOL.md)
@@ -208,21 +193,6 @@ export function redactForAudit(value: unknown, policy: PolicyConfig): unknown {
   return redactUnknown(value, policy, new WeakSet<object>());
 }
 
-export function appendAuditEntry(
-  globals: Record<string, unknown>,
-  entry: AuditEntry,
-  maxEntries: number,
-): void {
-  const existing = Array.isArray(globals.computerCustomAudit)
-    ? globals.computerCustomAudit
-    : [];
-  existing.push(entry);
-  while (existing.length > maxEntries) {
-    existing.shift();
-  }
-  globals.computerCustomAudit = existing;
-}
-
 export function expandEnvironmentRoot(
   value: string,
   environment: PolicyEnvironment = readPolicyEnvironment(),
@@ -264,13 +234,7 @@ function readPolicyEnvironment(): PolicyEnvironment {
 function readEnvironmentValue(name: string): string | undefined {
   const processEnv = (globalThis as any).process?.env;
   const processValue = processEnv?.[name];
-  if (typeof processValue === "string") {
-    return processValue;
-  }
-
-  const nodeReplEnv = (globalThis as any).nodeRepl?.env;
-  const nodeReplValue = nodeReplEnv?.[name];
-  return typeof nodeReplValue === "string" ? nodeReplValue : undefined;
+  return typeof processValue === "string" ? processValue : undefined;
 }
 
 function normalizePathText(value: string): string {
