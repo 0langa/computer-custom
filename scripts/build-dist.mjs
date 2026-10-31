@@ -57,18 +57,6 @@ copyFile(
   path.join(distRoot, "skills", "computer-custom", "SKILL.md"),
 );
 copyFile(
-  path.join(repoRoot, "build", "runtime.mjs"),
-  path.join(distRoot, "scripts", "computer-custom-client.mjs"),
-);
-copyFile(
-  path.join(repoRoot, "build", "policy.mjs"),
-  path.join(distRoot, "scripts", "policy.mjs"),
-);
-copyFile(
-  path.join(repoRoot, "overlay", "scripts", "computer-use-guard.mjs"),
-  path.join(distRoot, "scripts", "computer-use-guard.mjs"),
-);
-copyFile(
   path.join(repoRoot, "scripts", "install-elevated-helper.ps1"),
   path.join(distRoot, "scripts", "install-elevated-helper.ps1"),
 );

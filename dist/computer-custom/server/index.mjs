@@ -36486,11 +36486,6 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 var READ_ONLY_METHODS = /* @__PURE__ */ new Set([
-  // legacy sky method names
-  "documentation",
-  "get_window",
-  "get_window_state",
-  "list_apps",
   "list_windows",
   "screenshot",
   // self-contained MCP tool names (see docs/PROTOCOL.md)
@@ -36608,12 +36603,7 @@ function readPolicyEnvironment() {
 function readEnvironmentValue(name) {
   const processEnv = globalThis.process?.env;
   const processValue = processEnv?.[name];
-  if (typeof processValue === "string") {
-    return processValue;
-  }
-  const nodeReplEnv = globalThis.nodeRepl?.env;
-  const nodeReplValue = nodeReplEnv?.[name];
-  return typeof nodeReplValue === "string" ? nodeReplValue : void 0;
+  return typeof processValue === "string" ? processValue : void 0;
 }
 function normalizePathText(value) {
   return path.normalize(value).replaceAll("/", "\\").toLowerCase();
