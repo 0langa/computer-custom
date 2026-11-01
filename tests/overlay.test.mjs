@@ -73,19 +73,17 @@ describe("overlay lifecycle", () => {
     assert.doesNotThrow(() => {
       overlay.start();
       overlay.setState("acting");
-      overlay.ripple(10, 20);
       overlay.stop();
     });
     assert.equal(overlay.running, false);
   });
 
-  it("accepts state and ripple calls before it has started", () => {
+  it("accepts state calls before it has started", () => {
     delete process.env.COMPUTER_CUSTOM_OVERLAY;
     const overlay = track(new Overlay({ executablePath: OVERLAY }));
 
     assert.doesNotThrow(() => {
       overlay.setState("observing");
-      overlay.ripple(1, 1);
     });
   });
 });
@@ -141,7 +139,6 @@ describe("overlay process", { skip: !fs.existsSync(OVERLAY) && "overlay not buil
     await sleep(900);
     overlay.setState("observing");
     overlay.setState("acting");
-    overlay.ripple(400, 400);
     await sleep(300);
 
     overlay.stop();

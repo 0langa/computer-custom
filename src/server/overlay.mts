@@ -120,11 +120,6 @@ export class Overlay {
     this.#send({ state });
   }
 
-  /** Marks where a click landed, so a fast sequence can be followed. */
-  ripple(x: number, y: number): void {
-    this.#send({ ripple: { x, y } });
-  }
-
   stop(): void {
     this.#send({ quit: true });
 
