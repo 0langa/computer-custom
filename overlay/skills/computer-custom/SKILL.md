@@ -58,7 +58,7 @@ progress: observe the current state before preparing any remaining actions.
 
 `desktop_settings` persists threshold, notice, Snooze and input mode outside the
 plugin cache. `block` suppresses physical input during execution. `ignore` leaves
-physical input enabled and skips quiet-time waits; user input can interfere.
+physical input enabled; user input can interfere.
 Ctrl+Alt+Del releases Windows input blocking. The overlay stop hotkey may not be
 received during blocking. `HALTED` means the user stopped input; do not retry.
 

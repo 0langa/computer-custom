@@ -64,10 +64,11 @@ internal static class Program
     ///   directly. stdin is the most private channel available: unlike a command
     ///   line or an environment block, another process running as this user
     ///   cannot read it.
-    /// - `--session-file` pointing at a JSON file holding both. Used when a
-    ///   scheduled task launches us, because a task gives no stdin and its
-    ///   arguments are fixed at registration, so per-run values have to be left
-    ///   somewhere. The file lives under the user's private LocalAppData and is
+    /// - `--session-file` pointing at a JSON file holding both. Used when
+    ///   ShellExecute launches us: that path has no stdin, so per-run values
+    ///   have to be left somewhere. Elevation is the default;
+    ///   COMPUTER_CUSTOM_ELEVATED=0 opts out and uses `--pipe` plus stdin
+    ///   instead. The file lives under the user's private LocalAppData and is
     ///   deleted the moment it has been read.
     /// </summary>
     private static (string PipeName, string Token)? ReadSession(string[] args)

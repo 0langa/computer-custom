@@ -90,7 +90,6 @@ internal static class Operations
     private static Outcome FocusWindow(JsonElement args)
     {
         DesktopGuard.EnsureInteractiveDesktop();
-        UserActivity.WaitForQuiet();
         WindowInspector.Focus(RequiredLong(args, "handle"));
         return new Outcome(new { focused = true });
     }
@@ -119,74 +118,64 @@ internal static class Operations
 
     // ---- act ------------------------------------------------------------
 
-    /// <summary>
-    /// Run before anything that injects input: refuses on the secure desktop,
-    /// then waits for a gap in the user's own typing and clicking.
-    ///
-    /// Returns how long it waited, which callers report rather than hide. A
-    /// silent pause looks like a hang; a reported one looks like courtesy.
-    /// </summary>
-    private static int PrepareForInput()
-    {
-        DesktopGuard.EnsureInteractiveDesktop();
-        return UserActivity.WaitForQuiet();
-    }
+    /// <summary>Refuses on the secure desktop before injecting input.</summary>
+    private static void PrepareForInput() => DesktopGuard.EnsureInteractiveDesktop();
 
     private static Outcome Move(JsonElement args)
     {
-        var deferred = PrepareForInput();
+        PrepareForInput();
         var x = RequiredInt(args, "x");
         var y = RequiredInt(args, "y");
         InputSender.Move(x, y);
-        return new Outcome(new { x, y, deferredMs = deferred });
+        return new Outcome(new { x, y });
     }
 
     private static Outcome Click(JsonElement args)
     {
-        var deferred = PrepareForInput();
+        PrepareForInput();
         var x = RequiredInt(args, "x");
         var y = RequiredInt(args, "y");
         InputSender.Click(x, y, OptionalString(args, "button") ?? "left", OptionalInt(args, "count") ?? 1);
-        return new Outcome(new { x, y, deferredMs = deferred });
+        return new Outcome(new { x, y });
     }
 
     private static Outcome Drag(JsonElement args)
     {
-        var deferred = PrepareForInput();
+        PrepareForInput();
         InputSender.Drag(
             RequiredInt(args, "fromX"),
             RequiredInt(args, "fromY"),
             RequiredInt(args, "toX"),
             RequiredInt(args, "toY"),
             OptionalString(args, "button") ?? "left");
-        return new Outcome(new { dragged = true, deferredMs = deferred });
+        return new Outcome(new { dragged = true });
     }
 
     private static Outcome Scroll(JsonElement args)
     {
-        var deferred = PrepareForInput();
+        PrepareForInput();
         InputSender.Scroll(
             RequiredInt(args, "x"),
             RequiredInt(args, "y"),
             OptionalInt(args, "dx") ?? 0,
             OptionalInt(args, "dy") ?? 0);
-        return new Outcome(new { scrolled = true, deferredMs = deferred });
+        return new Outcome(new { scrolled = true });
     }
 
     private static Outcome TypeText(JsonElement args)
     {
-        var deferred = PrepareForInput();
+        PrepareForInput();
         var text = RequiredString(args, "text");
         InputSender.TypeText(text);
-        return new Outcome(new { length = text.Length, deferredMs = deferred });
+        return new Outcome(new { length = text.Length });
     }
 
     private static Outcome PressKeys(JsonElement args)
     {
-        var deferred = PrepareForInput();
+        PrepareForInput();
         var keys = RequiredStringArray(args, "keys");
         InputSender.PressKeys(keys);
-        return new Outcome(new { keys, deferredMs = deferred });
+        return new Outcome(new { keys });
     }
 
     private static Outcome InvokeElement(JsonElement args)
@@ -208,7 +197,6 @@ internal static class Operations
         DesktopGuard.EnsureInteractiveDesktop();
         if (OptionalBool(args, "prepared") == true)
             return TargetResolver.Resolve(args).Target;
-        UserActivity.WaitForQuiet();
         return null;
     }
 

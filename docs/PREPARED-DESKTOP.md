@@ -30,8 +30,8 @@ Snooze pauses all clients for five minutes. Neither Snooze nor cancellation
 replays actions. Failed batches cancel later dependent work from the same owner.
 
 The native input worker takes a per-session mutex and a lease of at most ten
-seconds. `block` suppresses physical input; `ignore` keeps it enabled and ignores
-activity-based quiet waits. Acquisition, input and release run on the same thread.
+seconds. `block` suppresses physical input; `ignore` keeps it enabled.
+Acquisition, input and release run on the same thread.
 Peer/parent death, cancellation and independent watchdogs release control.
 Each drag submits its balanced down/motion/up events in one SendInput transaction,
 with uncoalesced motion. No synthetic button remains held across sleeps. Windows

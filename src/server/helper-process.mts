@@ -116,13 +116,13 @@ export function installedHelperPath(): string {
 /**
  * Where the server leaves the pipe name and token for an elevated helper.
  *
- * A scheduled task gets no stdin and its arguments are fixed when it is
- * registered, so per-run values have to be left somewhere both sides agree on.
- * LocalAppData is the user's own directory. The helper deletes the file as soon
- * as it has read it, so the token is on disk for milliseconds.
+ * Elevated launch uses ShellExecute, which gives the helper no stdin, so
+ * per-run values have to be left somewhere both sides agree on. LocalAppData
+ * is the user's own directory. The helper deletes the file as soon as it has
+ * read it, so the token is on disk for milliseconds.
  *
- * This is weaker than the stdin route used for a normal start, and it is the
- * reason elevated mode is opt-in rather than the default.
+ * This is weaker than the stdin route used for a normal start. Elevation is
+ * the default; COMPUTER_CUSTOM_ELEVATED=0 opts out.
  */
 function sessionFilePath(): string {
   const base =
